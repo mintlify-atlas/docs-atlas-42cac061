@@ -1,0 +1,122 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "JobSpy JS",
+  "projectDescription": "TypeScript job scraper for LinkedIn, Indeed, Glassdoor, Google, ZipRecruiter, Bayt, Naukri & BDJobs",
+  "theme": "palm",
+  "primaryColor": "#d88982",
+  "lightColor": "#889aa4",
+  "darkColor": "#31654c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "SDK Guide",
+            "pages": [
+              "sdk/scraping-jobs",
+              "sdk/fetching-job-details",
+              "sdk/authentication",
+              "sdk/proxies",
+              "sdk/countries"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/overview",
+              "cli/commands",
+              "cli/config-profiles",
+              "cli/deduplication"
+            ]
+          },
+          {
+            "group": "MCP Server",
+            "pages": [
+              "mcp/setup",
+              "mcp/usage"
+            ]
+          },
+          {
+            "group": "Job Boards",
+            "pages": [
+              "job-boards/linkedin",
+              "job-boards/indeed",
+              "job-boards/glassdoor",
+              "job-boards/google-jobs",
+              "job-boards/google-careers",
+              "job-boards/ziprecruiter",
+              "job-boards/bayt",
+              "job-boards/naukri",
+              "job-boards/bdjobs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core Functions",
+            "pages": [
+              "api/scrape-jobs",
+              "api/fetch-linkedin-job",
+              "api/fetch-job-details"
+            ]
+          },
+          {
+            "group": "Types & Interfaces",
+            "pages": [
+              "api/types/job-post",
+              "api/types/job-response",
+              "api/types/scrape-jobs-params",
+              "api/types/location",
+              "api/types/compensation",
+              "api/types/credentials"
+            ]
+          },
+          {
+            "group": "Enums",
+            "pages": [
+              "api/enums/site",
+              "api/enums/job-type",
+              "api/enums/compensation-interval",
+              "api/enums/description-format"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Scrape jobs from 9 major job boards simultaneously",
+    "Browser TLS fingerprint emulation with wreq-js",
+    "Optional credential-based authentication for blocked sites",
+    "Profile-based deduplication across runs",
+    "Proxy rotation and country-specific domains",
+    "Three interfaces: SDK, CLI, and MCP server",
+    "Automatic salary extraction from descriptions",
+    "Support for 60+ countries"
+  ],
+  "publicApiSurface": [
+    "scrapeJobs(params: ScrapeJobsParams): Promise<JobResponse>",
+    "fetchLinkedInJob(jobId: string, options?): Promise<LinkedInJobDetails>",
+    "fetchJobDetails(site: string, jobId: string, options?): Promise<JobPost>",
+    "Site enum (LINKEDIN, INDEED, GLASSDOOR, GOOGLE, etc.)",
+    "JobType enum (FULL_TIME, PART_TIME, CONTRACT, etc.)",
+    "CompensationInterval enum (YEARLY, MONTHLY, HOURLY, etc.)",
+    "DescriptionFormat enum (MARKDOWN, HTML, PLAIN)",
+    "JobPost interface",
+    "JobResponse interface",
+    "ScrapeJobsParams interface",
+    "ProviderCredentials interface"
+  ]
+}
