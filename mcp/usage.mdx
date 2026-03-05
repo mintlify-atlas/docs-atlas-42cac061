@@ -1,0 +1,381 @@
+---
+title: "Usage"
+description: "Use JobSpy MCP tools with Claude Desktop and other AI assistants"
+---
+
+Once you've [set up the JobSpy MCP server](/mcp/setup), you can use it to search for jobs and fetch job details directly from your AI assistant.
+
+## Available Tools
+
+JobSpy exposes two MCP tools:
+
+### `scrape_jobs`
+
+Scrape job listings from multiple job boards (LinkedIn, Indeed, Glassdoor, Google, ZipRecruiter, Bayt, Naukri, BDJobs).
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `site_name` | `string[]` | all sites | Job boards to scrape (optional) |
+| `search_term` | `string` | — | Job title or search query |
+| `google_search_term` | `string` | — | Override search term for Google Jobs only |
+| `location` | `string` | — | Job location (e.g., "San Francisco, CA") |
+| `distance` | `number` | `50` | Search radius in miles |
+| `is_remote` | `boolean` | `false` | Filter for remote jobs only |
+| `job_type` | `string` | — | Filter by type: `fulltime`, `parttime`, `contract`, `internship` |
+| `results_wanted` | `number` | `10` | Number of results to return per site |
+| `country_indeed` | `string` | `"usa"` | Country for Indeed/Glassdoor (e.g., `usa`, `uk`, `canada`) |
+| `hours_old` | `number` | — | Filter jobs posted within last N hours |
+| `description_format` | `string` | `"markdown"` | Format: `markdown`, `html`, or `plain` |
+| `linkedin_fetch_description` | `boolean` | `false` | Fetch full LinkedIn descriptions (slower) |
+| `indeed_fetch_description` | `boolean` | `false` | Fetch full Indeed job pages/descriptions |
+
+**Returns:** A formatted list of jobs with titles, companies, locations, URLs, salaries, and posting dates.
+
+### `fetch_job`
+
+Fetch full details for a single job by its provider-specific ID.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `site` | `string` | Yes | Job board: `linkedin`, `indeed`, `zip_recruiter`, `glassdoor`, `google`, `bayt`, `naukri`, `bdjobs` |
+| `job_id` | `string` | Yes | Provider-specific job ID |
+| `description_format` | `string` | No | Format: `markdown` (default), `html`, or `plain` |
+
+**Returns:** Full job details as JSON, including complete description, requirements, benefits, and metadata.
+
+## Usage Examples
+
+### Basic Job Search
+
+Simply ask Claude to search for jobs using natural language:
+
+<CodeGroup>
+
+```plaintext Simple Search
+Find me 20 software engineer jobs in Seattle
+```
+
+```plaintext Multiple Sites
+Search for "data scientist" positions on LinkedIn and Indeed in New York
+```
+
+```plaintext Remote Jobs
+Find remote Python developer jobs
+```
+
+```plaintext Recent Postings
+Show me frontend developer jobs posted in the last 24 hours in Austin, TX
+```
+
+</CodeGroup>
+
+Claude will automatically call the `scrape_jobs` tool with appropriate parameters and return formatted results.
+
+### Advanced Searches
+
+<Tabs>
+  <Tab title="Filter by Type">
+    ```plaintext
+    Find contract software engineer positions in San Francisco within 25 miles
+    ```
+    
+    Claude will use:
+    - `search_term: "software engineer"`
+    - `location: "San Francisco, CA"`
+    - `job_type: "contract"`
+    - `distance: 25`
+  </Tab>
+  
+  <Tab title="Specific Job Board">
+    ```plaintext
+    Search LinkedIn only for "machine learning engineer" in Boston, get 30 results
+    ```
+    
+    Claude will use:
+    - `site_name: ["linkedin"]`
+    - `search_term: "machine learning engineer"`
+    - `location: "Boston, MA"`
+    - `results_wanted: 30`
+  </Tab>
+  
+  <Tab title="Time-Filtered">
+    ```plaintext
+    Find React developer jobs posted in the last 48 hours
+    ```
+    
+    Claude will use:
+    - `search_term: "React developer"`
+    - `hours_old: 48`
+  </Tab>
+  
+  <Tab title="International">
+    ```plaintext
+    Search for software engineer jobs in London, UK on Indeed UK
+    ```
+    
+    Claude will use:
+    - `search_term: "software engineer"`
+    - `location: "London"`
+    - `country_indeed: "uk"`
+  </Tab>
+</Tabs>
+
+### Fetching Job Details
+
+After getting search results, you can ask Claude to fetch full details for specific jobs:
+
+```plaintext
+Get the full job description for LinkedIn job ID 4127292817
+```
+
+Claude will call `fetch_job` with:
+- `site: "linkedin"`
+- `job_id: "4127292817"`
+
+This returns the complete job posting including:
+- Full description (with formatting)
+- Company information
+- Salary details
+- Job requirements
+- Benefits
+- Application instructions
+
+### Example Workflow
+
+<Steps>
+
+### Search for relevant jobs
+
+```plaintext
+Find 15 senior backend engineer positions in San Francisco on LinkedIn and Indeed
+```
+
+Claude returns a list of jobs with titles, companies, and URLs.
+
+### Review and select
+
+Claude presents results like:
+
+```
+1. **Senior Backend Engineer**
+   Company: Stripe
+   Location: San Francisco, CA
+   URL: https://linkedin.com/jobs/view/4127292817
+   Posted: 2026-03-04
+   Salary: $150,000 - $220,000 (yearly)
+   Type: fulltime
+
+2. **Backend Software Engineer (Senior)**
+   Company: Airbnb
+   Location: San Francisco, CA (Remote)
+   URL: https://indeed.com/viewjob?jk=abc123
+   ...
+```
+
+### Get full details
+
+```plaintext
+Show me the full description and requirements for the Stripe position (job #1)
+```
+
+Claude extracts the job ID from the URL and fetches complete details.
+
+### Compare or analyze
+
+```plaintext
+Compare the salary ranges and requirements for the first three positions
+```
+
+Claude can analyze and summarize information across multiple jobs.
+
+</Steps>
+
+## Supported Job Boards
+
+| Site | `site_name` Value | Notes |
+|------|-------------------|-------|
+| LinkedIn | `linkedin` | HTML scraping; may require credentials for high volume |
+| Indeed | `indeed` | GraphQL API; supports 60+ countries |
+| Glassdoor | `glassdoor` | GraphQL API; uses same country parameter as Indeed |
+| Google Jobs | `google` | Requires Playwright; use clean residential IP |
+| Google Careers | `google_careers` | Jobs at Google the company specifically |
+| ZipRecruiter | `zip_recruiter` | Web scraping |
+| Bayt | `bayt` | Middle East job board |
+| Naukri | `naukri` | India job board (REST API) |
+| BDJobs | `bdjobs` | Bangladesh job board (REST API) |
+
+## Response Format
+
+The `scrape_jobs` tool returns formatted text with job listings:
+
+```
+Found 15 jobs:
+
+1. **Software Engineer**
+   Company: Example Corp
+   Location: San Francisco, CA
+   URL: https://linkedin.com/jobs/view/123456
+   Posted: 2026-03-05
+   Salary: $120,000 - $180,000 (yearly)
+   Type: fulltime
+
+2. **Senior Software Engineer**
+   Company: Tech Startup
+   Location: Remote
+   URL: https://indeed.com/viewjob?jk=abc123
+   Posted: 2026-03-04
+   Type: fulltime
+
+...
+```
+
+The `fetch_job` tool returns complete job details as structured JSON:
+
+```json
+{
+  "id": "4127292817",
+  "site": "linkedin",
+  "title": "Senior Software Engineer",
+  "company": "Stripe",
+  "location": "San Francisco, CA",
+  "job_type": ["fulltime"],
+  "date_posted": "2026-03-04",
+  "job_url": "https://linkedin.com/jobs/view/4127292817",
+  "job_url_direct": "https://jobs.stripe.com/o/senior-software-engineer",
+  "description": "## About the role\n\nWe're looking for...",
+  "company_industry": "Financial Services",
+  "job_level": "mid-senior level",
+  "min_amount": 150000,
+  "max_amount": 220000,
+  "currency": "USD",
+  "interval": "yearly",
+  "is_remote": false
+}
+```
+
+## Tips and Best Practices
+
+<AccordionGroup>
+
+<Accordion title="Start broad, then narrow">
+  Begin with a general search across multiple sites, then refine:
+  
+  1. "Find software engineer jobs in Seattle"
+  2. Review results and identify patterns
+  3. "Now search only LinkedIn for senior backend engineer positions in Seattle with salaries above $150k"
+</Accordion>
+
+<Accordion title="Use time filters for active job hunts">
+  When actively searching for jobs, use `hours_old` to see only fresh postings:
+  
+  ```plaintext
+  Find jobs posted in the last 24 hours for "frontend developer" in NYC
+  ```
+  
+  This helps you apply early before positions get flooded with applications.
+</Accordion>
+
+<Accordion title="Fetch details selectively">
+  Full job fetches are slower (especially on LinkedIn). Only request full details for jobs that look promising from the initial search results.
+  
+  ```plaintext
+  Get full details for jobs 1, 3, and 5 from the previous search
+  ```
+</Accordion>
+
+<Accordion title="Specify job boards for best results">
+  Different sites have different strengths:
+  
+  - **LinkedIn**: Tech jobs, networking opportunities, company culture
+  - **Indeed**: Broad coverage, all industries
+  - **Glassdoor**: Salary data, company reviews
+  - **Google Jobs**: Aggregates from multiple sources
+  - **ZipRecruiter**: Quick apply options
+  
+  Target specific sites based on your needs:
+  ```plaintext
+  Search LinkedIn and Glassdoor for "data analyst" jobs so I can see salaries and reviews
+  ```
+</Accordion>
+
+<Accordion title="Handle rate limiting gracefully">
+  If you get rate-limited (especially on LinkedIn):
+  
+  1. Reduce `results_wanted` to 10-15 per site
+  2. Wait a few minutes before trying again
+  3. Use credentials if available (see [Setup](/mcp/setup#authentication-credentials))
+  4. Consider using a proxy
+  
+  Ask Claude to adjust parameters:
+  ```plaintext
+  Try that search again but only get 10 results per site
+  ```
+</Accordion>
+
+</AccordionGroup>
+
+## Common Patterns
+
+### Job Hunt Automation
+
+```plaintext
+I'm looking for remote senior software engineer positions focused on Python and AWS.
+Search the major job boards for recent postings (last 48 hours), filter for remote only,
+and show me positions with salary information. Then get full details for the top 3 matches.
+```
+
+### Market Research
+
+```plaintext
+Search for "machine learning engineer" jobs in San Francisco, Seattle, and New York.
+Tell me which location has the most openings and what the salary ranges look like.
+```
+
+### Company-Specific Searches
+
+While you can't directly filter by company in the MCP tools, you can ask Claude to search and filter:
+
+```plaintext
+Find software engineer jobs on LinkedIn in Seattle, then show me only positions at 
+Amazon, Microsoft, or Google.
+```
+
+### Follow-up Queries
+
+Claude maintains context, so you can refine searches iteratively:
+
+```plaintext
+Search for "frontend developer" jobs in Austin
+
+[results returned]
+
+Now narrow that to React-specific roles posted in the last week
+
+[results returned]
+
+Get full details for the first two positions
+```
+
+## Limitations
+
+<Warning>
+- **Rate limiting**: Job boards may rate-limit requests. If you get errors, reduce `results_wanted` or wait before retrying.
+- **Google Jobs**: Requires Playwright and a clean IP address. May not work behind some VPNs or from datacenter IPs.
+- **LinkedIn**: Frequent rate limiting for anonymous users. Consider adding credentials via environment variables.
+- **Dynamic content**: Some job descriptions may not render perfectly in markdown format. Try `html` or `plain` format instead.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="SDK Usage" icon="code" href="/sdk/scrape-jobs">
+    Use JobSpy programmatically in your own applications
+  </Card>
+  <Card title="CLI Usage" icon="terminal" href="/cli/quick-start">
+    Run JobSpy from the command line
+  </Card>
+</CardGroup>

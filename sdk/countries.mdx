@@ -1,0 +1,500 @@
+---
+title: "Countries"
+description: "International job search support across 60+ countries"
+---
+
+## Overview
+
+JobSpy JS supports scraping jobs from **60+ countries** through Indeed and Glassdoor's regional domains. The `country_indeed` parameter controls which country-specific domain to use.
+
+<Note>
+  Country selection only affects **Indeed** and **Glassdoor**. Other scrapers (LinkedIn, ZipRecruiter, etc.) use their global domains.
+</Note>
+
+## Basic Usage
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+// Search for jobs in Germany
+const result = await scrapeJobs({
+  site_name: ["indeed", "glassdoor"],
+  search_term: "Softwareentwickler",
+  location: "Berlin",
+  country_indeed: "germany",
+});
+
+console.log(`Found ${result.jobs.length} jobs in Germany`);
+```
+
+## Configuration
+
+<ParamField path="country_indeed" type="string" default="usa">
+  Country for Indeed and Glassdoor regional domains.
+  
+  **Default:** `"usa"`
+  
+  Country names are case-insensitive and support common aliases:
+  - `"us"`, `"usa"`, `"united states"` → USA
+  - `"uk"`, `"united kingdom"` → United Kingdom
+  - `"czechia"`, `"czech republic"` → Czech Republic
+  
+  ```typescript
+  country_indeed: "germany"
+  country_indeed: "uk"
+  country_indeed: "canada"
+  ```
+</ParamField>
+
+## Supported Countries
+
+JobSpy JS supports **60+ countries**. The table below shows which countries work with Indeed and Glassdoor:
+
+| Country | Indeed | Glassdoor | Country Code |
+|---------|--------|-----------|-------------|
+| **Argentina** | ✓ | ✓ | `argentina` |
+| **Australia** | ✓ | ✓ | `australia` |
+| **Austria** | ✓ | ✓ | `austria` |
+| **Bahrain** | ✓ | — | `bahrain` |
+| **Bangladesh** | ✓ | — | `bangladesh` |
+| **Belgium** | ✓ | ✓ | `belgium` |
+| **Brazil** | ✓ | ✓ | `brazil` |
+| **Canada** | ✓ | ✓ | `canada` |
+| **Chile** | ✓ | — | `chile` |
+| **China** | ✓ | — | `china` |
+| **Colombia** | ✓ | — | `colombia` |
+| **Costa Rica** | ✓ | — | `costa rica` |
+| **Czech Republic** | ✓ | — | `czech republic`, `czechia` |
+| **Denmark** | ✓ | — | `denmark` |
+| **Ecuador** | ✓ | — | `ecuador` |
+| **Egypt** | ✓ | — | `egypt` |
+| **Finland** | ✓ | — | `finland` |
+| **France** | ✓ | ✓ | `france` |
+| **Germany** | ✓ | ✓ | `germany` |
+| **Greece** | ✓ | — | `greece` |
+| **Hong Kong** | ✓ | ✓ | `hong kong` |
+| **Hungary** | ✓ | — | `hungary` |
+| **India** | ✓ | ✓ | `india` |
+| **Indonesia** | ✓ | — | `indonesia` |
+| **Ireland** | ✓ | ✓ | `ireland` |
+| **Israel** | ✓ | — | `israel` |
+| **Italy** | ✓ | ✓ | `italy` |
+| **Japan** | ✓ | — | `japan` |
+| **Kuwait** | ✓ | — | `kuwait` |
+| **Luxembourg** | ✓ | — | `luxembourg` |
+| **Malaysia** | ✓ | ✓ | `malaysia` |
+| **Mexico** | ✓ | ✓ | `mexico` |
+| **Morocco** | ✓ | — | `morocco` |
+| **Netherlands** | ✓ | ✓ | `netherlands` |
+| **New Zealand** | ✓ | ✓ | `new zealand` |
+| **Nigeria** | ✓ | — | `nigeria` |
+| **Norway** | ✓ | — | `norway` |
+| **Oman** | ✓ | — | `oman` |
+| **Pakistan** | ✓ | — | `pakistan` |
+| **Panama** | ✓ | — | `panama` |
+| **Peru** | ✓ | — | `peru` |
+| **Philippines** | ✓ | — | `philippines` |
+| **Poland** | ✓ | — | `poland` |
+| **Portugal** | ✓ | — | `portugal` |
+| **Qatar** | ✓ | — | `qatar` |
+| **Romania** | ✓ | — | `romania` |
+| **Saudi Arabia** | ✓ | — | `saudi arabia` |
+| **Singapore** | ✓ | ✓ | `singapore` |
+| **South Africa** | ✓ | — | `south africa` |
+| **South Korea** | ✓ | — | `south korea` |
+| **Spain** | ✓ | ✓ | `spain` |
+| **Sweden** | ✓ | — | `sweden` |
+| **Switzerland** | ✓ | ✓ | `switzerland` |
+| **Taiwan** | ✓ | — | `taiwan` |
+| **Thailand** | ✓ | — | `thailand` |
+| **Turkey** | ✓ | — | `turkey`, `türkiye` |
+| **Ukraine** | ✓ | — | `ukraine` |
+| **United Arab Emirates** | ✓ | — | `united arab emirates` |
+| **United Kingdom** | ✓ | ✓ | `uk`, `united kingdom` |
+| **USA** | ✓ | ✓ | `usa`, `us`, `united states` |
+| **Uruguay** | ✓ | — | `uruguay` |
+| **Venezuela** | ✓ | — | `venezuela` |
+| **Vietnam** | ✓ | ✓ | `vietnam` |
+
+<Tip>
+  Use the country where you want to search for jobs, not your current location. For example, if you're in India but want to search for jobs in Germany, use `country_indeed: "germany"`.
+</Tip>
+
+## Examples
+
+### Search Jobs in Germany
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "glassdoor"],
+  search_term: "Softwareentwickler",
+  location: "Berlin",
+  country_indeed: "germany",
+  results_wanted: 30,
+});
+
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company}`);
+  console.log(`Location: ${job.location}`);
+  console.log(`Salary: ${job.min_amount} - ${job.max_amount} ${job.currency}`);
+  console.log("---");
+}
+```
+
+### Search Jobs in United Kingdom
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed", "glassdoor"],
+  search_term: "software engineer",
+  location: "London",
+  country_indeed: "uk",  // or "united kingdom"
+  results_wanted: 20,
+});
+```
+
+### Search Jobs in Multiple Countries
+
+To search multiple countries, make separate calls:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const countries = ["usa", "canada", "uk", "germany"];
+const allJobs = [];
+
+for (const country of countries) {
+  console.log(`Searching ${country}...`);
+  
+  const result = await scrapeJobs({
+    site_name: ["indeed"],
+    search_term: "software engineer",
+    country_indeed: country,
+    results_wanted: 10,
+  });
+  
+  allJobs.push(...result.jobs);
+}
+
+console.log(`Found ${allJobs.length} total jobs across ${countries.length} countries`);
+```
+
+### Search with Local Language
+
+Use the local language for better results:
+
+```typescript
+// French jobs in France
+const resultFR = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "développeur logiciel",
+  location: "Paris",
+  country_indeed: "france",
+});
+
+// Spanish jobs in Spain
+const resultES = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "ingeniero de software",
+  location: "Madrid",
+  country_indeed: "spain",
+});
+
+// Japanese jobs in Japan
+const resultJP = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "ソフトウェアエンジニア",
+  location: "Tokyo",
+  country_indeed: "japan",
+});
+```
+
+### Search with Country-Specific Sites
+
+Combine international Indeed/Glassdoor with region-specific sites:
+
+```typescript
+// Middle East jobs
+const resultME = await scrapeJobs({
+  site_name: ["indeed", "bayt"],  // Bayt is Middle East focused
+  search_term: "software engineer",
+  location: "Dubai",
+  country_indeed: "united arab emirates",
+});
+
+// India jobs
+const resultIN = await scrapeJobs({
+  site_name: ["indeed", "naukri"],  // Naukri is India focused
+  search_term: "software engineer",
+  location: "Bangalore",
+  country_indeed: "india",
+});
+
+// Bangladesh jobs
+const resultBD = await scrapeJobs({
+  site_name: ["indeed", "bdjobs"],  // BDJobs is Bangladesh focused
+  search_term: "software engineer",
+  location: "Dhaka",
+  country_indeed: "bangladesh",
+});
+```
+
+## How Country Selection Works
+
+### Indeed Domains
+
+Each country maps to a specific Indeed domain:
+
+| Country | Indeed Domain |
+|---------|---------------|
+| USA | `www.indeed.com` |
+| UK | `uk.indeed.com` |
+| Germany | `de.indeed.com` |
+| France | `fr.indeed.com` |
+| Canada | `ca.indeed.com` |
+| Australia | `au.indeed.com` |
+| India | `in.indeed.com` |
+| ... | ... |
+
+### Glassdoor Domains
+
+Glassdoor has fewer regional domains:
+
+| Country | Glassdoor Domain |
+|---------|------------------|
+| USA | `www.glassdoor.com` |
+| UK | `www.glassdoor.co.uk` |
+| Germany | `www.glassdoor.de` |
+| France | `www.glassdoor.fr` |
+| Canada | `www.glassdoor.ca` |
+| India | `www.glassdoor.co.in` |
+| ... | ... |
+
+Countries without a Glassdoor domain fall back to the global site.
+
+## Helper Functions
+
+### getCountry()
+
+Resolve a country by name (case-insensitive):
+
+```typescript
+import { getCountry } from "jobspy-js";
+
+const country = getCountry("germany");
+console.log(country.name);              // "germany"
+console.log(country.indeed_domain);     // "de"
+console.log(country.indeed_api_code);   // "DE"
+console.log(country.glassdoor_domain);  // "www.glassdoor.de"
+```
+
+**Type Definition:**
+
+```typescript
+interface Country {
+  name: string;              // Country name
+  indeed_domain: string;     // Indeed domain (e.g. "de", "uk", "www")
+  indeed_api_code: string;   // Indeed API country code (e.g. "DE", "GB", "US")
+  glassdoor_domain?: string; // Glassdoor domain (if available)
+}
+
+function getCountry(name: string): Country
+```
+
+**Throws** if the country is not found:
+
+```typescript
+try {
+  const country = getCountry("atlantis");
+} catch (err) {
+  console.error(err.message);
+  // "Invalid country: 'atlantis'. Valid countries: argentina, australia, ..."
+}
+```
+
+### Country Aliases
+
+Several countries have aliases:
+
+```typescript
+getCountry("us")             // → USA
+getCountry("usa")            // → USA
+getCountry("united states")  // → USA
+
+getCountry("uk")             // → United Kingdom
+getCountry("united kingdom") // → United Kingdom
+
+getCountry("czechia")        // → Czech Republic
+getCountry("czech republic") // → Czech Republic
+
+getCountry("turkey")         // → Turkey
+getCountry("türkiye")        // → Turkey
+```
+
+## CLI Usage
+
+### Specify Country
+
+```bash
+# Search for jobs in Germany
+jobspy -s indeed glassdoor -q "Softwareentwickler" -l "Berlin" -c germany
+
+# Search for jobs in UK
+jobspy -s indeed -q "software engineer" -l "London" -c uk
+
+# Search for jobs in Canada
+jobspy -s indeed -q "developer" -l "Toronto" -c canada
+```
+
+### Default Country
+
+If you don't specify a country, it defaults to USA:
+
+```bash
+# Uses USA by default
+jobspy -s indeed -q "engineer"
+
+# Equivalent to:
+jobspy -s indeed -q "engineer" -c usa
+```
+
+## Troubleshooting
+
+### Invalid Country Name
+
+**Symptoms:** `Invalid country: '...'` error
+
+**Solution:** Check spelling and use the correct country name from the [supported countries list](#supported-countries):
+
+```typescript
+// ❌ Wrong
+country_indeed: "Deutschland"  // Use "germany" instead
+
+// ✅ Correct
+country_indeed: "germany"
+```
+
+### No Glassdoor Domain
+
+**Symptoms:** Empty Glassdoor results for certain countries
+
+**Solution:** Some countries don't have a dedicated Glassdoor domain. Use Indeed instead or scrape from Glassdoor's global site:
+
+```typescript
+// Norway doesn't have a Glassdoor domain
+const result = await scrapeJobs({
+  site_name: ["indeed"],  // Skip Glassdoor for Norway
+  search_term: "engineer",
+  location: "Oslo",
+  country_indeed: "norway",
+});
+```
+
+### Wrong Country Results
+
+**Symptoms:** Getting jobs from the wrong country
+
+**Solution:** Ensure you're setting both `country_indeed` and `location` correctly:
+
+```typescript
+// ❌ Wrong - location and country don't match
+const result = await scrapeJobs({
+  location: "Berlin",
+  country_indeed: "usa",  // Mismatch!
+});
+
+// ✅ Correct
+const result = await scrapeJobs({
+  location: "Berlin",
+  country_indeed: "germany",
+});
+```
+
+## Best Practices
+
+### 1. Match Location and Country
+
+Always ensure the `location` parameter matches the `country_indeed` setting:
+
+```typescript
+// ✅ Good
+const result = await scrapeJobs({
+  search_term: "engineer",
+  location: "Paris",
+  country_indeed: "france",
+});
+
+// ❌ Bad - location and country mismatch
+const result = await scrapeJobs({
+  search_term: "engineer",
+  location: "Paris",
+  country_indeed: "germany",
+});
+```
+
+### 2. Use Local Language
+
+Search terms in the local language yield better results:
+
+```typescript
+// Better results in France
+const result = await scrapeJobs({
+  search_term: "développeur logiciel",  // French
+  location: "Paris",
+  country_indeed: "france",
+});
+
+// vs.
+const result = await scrapeJobs({
+  search_term: "software developer",  // English
+  location: "Paris",
+  country_indeed: "france",
+});
+```
+
+### 3. Combine with Region-Specific Sites
+
+Use local job boards alongside Indeed/Glassdoor:
+
+```typescript
+// India: Indeed + Naukri
+const result = await scrapeJobs({
+  site_name: ["indeed", "naukri"],
+  country_indeed: "india",
+  location: "Bangalore",
+});
+
+// Middle East: Indeed + Bayt
+const result = await scrapeJobs({
+  site_name: ["indeed", "bayt"],
+  country_indeed: "united arab emirates",
+  location: "Dubai",
+});
+```
+
+### 4. Handle Salary Differences
+
+Different countries use different currencies and compensation structures:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "engineer",
+  location: "London",
+  country_indeed: "uk",
+});
+
+for (const job of result.jobs) {
+  if (job.currency === "GBP") {
+    console.log(`£${job.min_amount} - £${job.max_amount}`);
+  }
+}
+```
+
+## See Also
+
+- [Scraping Jobs](/sdk/scraping-jobs) — Main scraping function
+- [Proxies](/sdk/proxies) — Use proxies from the target country
+- [Authentication](/sdk/authentication) — Credentials for international sites

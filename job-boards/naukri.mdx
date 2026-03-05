@@ -1,0 +1,424 @@
+---
+title: Naukri
+description: Scrape job postings from Naukri, India's leading job portal
+---
+
+## Overview
+
+Naukri.com is India's #1 job site, with millions of registered users and job postings across all industries. JobSpy JS scrapes Naukri using its **REST API**, providing fast and reliable access to job data.
+
+## Scraping Method
+
+**REST API** at `https://www.naukri.com/jobapi/v3/search`
+
+- Queries the public Naukri job search API
+- Returns structured JSON with comprehensive job details
+- Supports pagination (20 jobs per page, up to 50 pages)
+- Includes company metadata, salary ranges, skills, and ratings
+- Built-in delays (3-7 seconds) between requests
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "software engineer",
+  location: "Bangalore",
+  results_wanted: 50,
+});
+
+console.log(`Found ${result.jobs.length} jobs on Naukri`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}`);
+  
+  if (job.compensation) {
+    console.log(`Salary: ₹${job.compensation.min_amount}-${job.compensation.max_amount} ${job.compensation.currency}`);
+  }
+  
+  if (job.skills) {
+    console.log(`Skills: ${job.skills.join(", ")}`);
+  }
+  
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Search by city
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "data analyst",
+  location: "Mumbai",
+  results_wanted: 30,
+});
+```
+
+### Remote jobs
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "full stack developer",
+  is_remote: true,
+  results_wanted: 40,
+});
+```
+
+### Recent postings
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "product manager",
+  location: "Delhi",
+  hours_old: 72,  // Posted in last 3 days
+  results_wanted: 25,
+});
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by Naukri job ID
+const job = await fetchJobDetails("naukri", "123456789");
+
+console.log(job.title);
+console.log(job.description);  // Full job description
+console.log(job.company_name);
+console.log(job.skills);  // Required skills
+console.log(job.experience_range);  // e.g., "3-5 years"
+```
+
+### Filter by experience and salary
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "java developer",
+  location: "Pune",
+  results_wanted: 100,
+});
+
+// Filter jobs with 2-5 years experience
+const experiencedJobs = result.jobs.filter(job => {
+  const exp = job.experience_range ?? "";
+  const match = exp.match(/(\d+)/);
+  if (match) {
+    const years = parseInt(match[1]);
+    return years >= 2 && years <= 5;
+  }
+  return false;
+});
+
+// Filter jobs with salary info
+const jobsWithSalary = result.jobs.filter(job => job.compensation?.min_amount);
+
+console.log(`${experiencedJobs.length} jobs for 2-5 years experience`);
+console.log(`${jobsWithSalary.length} jobs include salary information`);
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City or region (e.g., "Bangalore", "Delhi", "Mumbai") |
+| `is_remote` | ✅ | Remote/work-from-home jobs |
+| `hours_old` | ✅ | Filter by posting age (converted to days) |
+| `distance` | ❌ | Not supported |
+| `job_type` | ❌ | Not supported |
+| `easy_apply` | ❌ | Not supported |
+
+## Returned Fields
+
+Naukri returns rich job metadata:
+
+### Core fields
+- `id`, `title`, `company_name`, `company_url`, `location`, `date_posted`, `job_url`
+
+### Compensation
+- `compensation.min_amount`, `compensation.max_amount` (in INR)
+- `compensation.currency` ("INR")
+
+**Salary ranges** are typically in **Lakhs** (1 Lakh = 100,000 INR):
+- "5-10 Lacs" → ₹500,000 - ₹1,000,000
+- "10-15 Lacs" → ₹1,000,000 - ₹1,500,000
+
+<Note>
+  Naukri salaries are displayed in Lakhs (1 Lakh = 100,000 INR) or Crores (1 Cr = 10,000,000 INR). JobSpy automatically converts these to numeric amounts.
+</Note>
+
+### Job metadata
+- `description` (full job description when available)
+- `skills` (array of required skills)
+- `experience_range` (e.g., "2-5 years")
+- `is_remote` (boolean)
+- `work_from_home_type` ("Remote", "Hybrid", "Work from office")
+- `vacancy_count` (number of openings)
+- `emails` (extracted from description)
+
+### Company details
+- `company_logo` (URL)
+- `company_rating` (from AmbitionBox, 0-5 scale)
+- `company_reviews_count`
+
+## Rate Limits & Best Practices
+
+### Built-in delays
+
+Naukri scraper includes automatic delays (3-7 seconds) between requests. These delays are **required** to avoid rate limiting.
+
+### Pagination limits
+
+Naukri caps results at **50 pages × 20 jobs = 1000 jobs maximum**:
+
+```typescript
+// ✅ Good: Within limits
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "engineer",
+  results_wanted: 500,
+});
+
+// ⚠️ Capped: Will only return 1000
+const result2 = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "developer",
+  results_wanted: 2000,  // Only returns 1000
+});
+```
+
+### Use proxies for reliability
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "data scientist",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 200,
+});
+```
+
+### API reliability
+
+Naukri's API is generally stable, but may occasionally return empty results or rate limit. Add error handling:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+try {
+  const result = await scrapeJobs({
+    site_name: ["naukri"],
+    search_term: "engineer",
+    results_wanted: 100,
+  });
+  console.log(`Found ${result.jobs.length} jobs`);
+} catch (error) {
+  console.error("Naukri scraping failed:", error);
+}
+```
+
+## Troubleshooting
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Causes:**
+1. No jobs match your search term and location
+2. API rate limiting
+
+**Solutions:**
+1. Use broader search terms (e.g., "engineer" instead of "senior staff engineer")
+2. Remove or change the location filter
+3. Wait a few minutes and retry
+4. Use a proxy
+
+### API status code errors
+
+**Symptom:** "Naukri API response status code 403" or similar
+
+**Cause:** Rate limiting or IP blocking
+
+**Solutions:**
+1. Use residential proxies
+2. Add longer delays between searches
+3. Reduce `results_wanted`
+4. Wait 10-15 minutes before retrying
+
+### Missing salary data
+
+**Symptom:** `compensation` is `undefined` for many jobs
+
+**Note:** Many Indian employers don't disclose salaries in job postings. Naukri shows "Not disclosed" for these listings. This is a data availability issue, not a scraping issue.
+
+### "Not disclosed" salaries
+
+**Symptom:** `compensation` is `undefined` even though the job listing mentions salary
+
+**Cause:** Naukri API returns "Not disclosed" for these jobs
+
+**Solution:** Filter for jobs with explicit salary ranges:
+```typescript
+const jobsWithSalary = result.jobs.filter(job => 
+  job.compensation?.min_amount && job.compensation?.max_amount
+);
+```
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s naukri -q "software engineer" -l "Bangalore" -n 50
+
+# Remote jobs
+jobspy -s naukri -q "python developer" -r -n 40
+
+# Recent postings (last 24 hours)
+jobspy -s naukri -q "data scientist" --hours-old 24 -n 30
+
+# Multiple cities
+jobspy -s naukri -q "product manager" -l "Delhi" -n 50 -o delhi-jobs.json
+jobspy -s naukri -q "product manager" -l "Mumbai" -n 50 -o mumbai-jobs.json
+
+# Export to CSV
+jobspy -s naukri -q "java developer" -l "Pune" -n 100 -o jobs.csv
+
+# Fetch single job by ID
+jobspy -s naukri --id 123456789
+```
+
+## Use Cases
+
+### Analyze salary trends
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "software engineer",
+  location: "Bangalore",
+  results_wanted: 200,
+});
+
+const jobsWithSalary = result.jobs.filter(job => job.compensation?.min_amount);
+
+const salaries = jobsWithSalary.map(job => ({
+  title: job.title,
+  min: job.compensation!.min_amount!,
+  max: job.compensation!.max_amount!,
+  avg: (job.compensation!.min_amount! + job.compensation!.max_amount!) / 2,
+}));
+
+// Sort by average salary
+salaries.sort((a, b) => b.avg - a.avg);
+
+console.log(`\nTop 10 highest-paying software engineer jobs in Bangalore:`);
+for (const job of salaries.slice(0, 10)) {
+  console.log(`${job.title}: ₹${job.min / 100000}-${job.max / 100000} Lakhs`);
+}
+```
+
+### Skills demand analysis
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "developer",
+  results_wanted: 500,
+});
+
+const skillCounts: Record<string, number> = {};
+
+for (const job of result.jobs) {
+  for (const skill of job.skills ?? []) {
+    skillCounts[skill] = (skillCounts[skill] ?? 0) + 1;
+  }
+}
+
+const topSkills = Object.entries(skillCounts)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 20);
+
+console.log("Top 20 in-demand skills:");
+for (const [skill, count] of topSkills) {
+  console.log(`${skill}: ${count} jobs`);
+}
+```
+
+### Track WFH opportunities
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "software engineer",
+  results_wanted: 300,
+});
+
+const byWfhType: Record<string, number> = {};
+for (const job of result.jobs) {
+  const type = job.work_from_home_type ?? "Unknown";
+  byWfhType[type] = (byWfhType[type] ?? 0) + 1;
+}
+
+console.log("Jobs by work arrangement:");
+for (const [type, count] of Object.entries(byWfhType)) {
+  const pct = ((count / result.jobs.length) * 100).toFixed(1);
+  console.log(`${type}: ${count} jobs (${pct}%)`);
+}
+```
+
+### Company ratings correlation
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["naukri"],
+  search_term: "engineer",
+  results_wanted: 200,
+});
+
+const jobsWithRatings = result.jobs.filter(job => 
+  job.company_rating && job.compensation?.min_amount
+);
+
+jobsWithRatings.sort((a, b) => b.company_rating! - a.company_rating!);
+
+console.log("\nTop-rated companies hiring engineers:");
+for (const job of jobsWithRatings.slice(0, 10)) {
+  console.log(`${job.company_name}: ${job.company_rating}/5 (${job.company_reviews_count} reviews)`);
+}
+```
+
+## Currency Conversion
+
+Naukri salaries are in Indian Rupees (INR). Common conversions:
+
+| Lakhs (Lacs) | INR | USD (approx.) |
+|--------------|-----|---------------|
+| 3-5 Lacs | ₹300,000 - ₹500,000 | $3,600 - $6,000 |
+| 5-10 Lacs | ₹500,000 - ₹1,000,000 | $6,000 - $12,000 |
+| 10-15 Lacs | ₹1,000,000 - ₹1,500,000 | $12,000 - $18,000 |
+| 15-20 Lacs | ₹1,500,000 - ₹2,000,000 | $18,000 - $24,000 |
+| 20-30 Lacs | ₹2,000,000 - ₹3,000,000 | $24,000 - $36,000 |
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/naukri/index.ts`
+- Key: `naukri`
+- Site enum: `Site.NAUKRI`

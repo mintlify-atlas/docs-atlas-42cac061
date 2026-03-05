@@ -1,0 +1,250 @@
+---
+title: JobType
+description: Employment type classifications for job filtering and results
+---
+
+The `JobType` enum defines standardized employment types used to filter job searches and categorize results. JobSpy automatically normalizes various job type formats (including international variations) to these standard values.
+
+## Enum Values
+
+### `FULL_TIME`
+
+**Value:** `"fulltime"`
+
+Full-time permanent positions with standard working hours (typically 35-40 hours per week).
+
+- Most common employment type
+- Usually includes benefits packages
+- Recognized in 20+ languages (see normalization below)
+
+### `PART_TIME`
+
+**Value:** `"parttime"`
+
+Part-time positions with reduced hours compared to full-time.
+
+- Typically less than 35 hours per week
+- May have prorated benefits
+- Common in retail, hospitality, and flexible roles
+
+### `CONTRACT`
+
+**Value:** `"contract"`
+
+Fixed-term contract or project-based positions.
+
+- Defined start and end dates
+- Often through staffing agencies or as independent contractors
+- May be W2 or 1099 (US) or equivalent in other countries
+
+### `TEMPORARY`
+
+**Value:** `"temporary"`
+
+Short-term temporary positions.
+
+- Usually shorter duration than contracts
+- Often seasonal or to cover absences
+- Common in administrative and industrial roles
+
+### `INTERNSHIP`
+
+**Value:** `"internship"`
+
+Internship programs for students or recent graduates.
+
+- Educational or training component
+- Can be paid or unpaid
+- Often leads to full-time opportunities
+
+### `PER_DIEM`
+
+**Value:** `"perdiem"`
+
+Per diem or day-rate positions.
+
+- Payment calculated on a daily basis
+- Common in healthcare, education, and consulting
+- Flexible scheduling
+
+### `NIGHTS`
+
+**Value:** `"nights"`
+
+Night shift or overnight positions.
+
+- Work primarily during nighttime hours
+- Often includes shift differential pay
+- Common in healthcare, manufacturing, and security
+
+### `OTHER`
+
+**Value:** `"other"`
+
+Employment types that don't fit standard categories.
+
+- Catch-all for miscellaneous arrangements
+- May include unique or hybrid models
+
+### `SUMMER`
+
+**Value:** `"summer"`
+
+Summer-specific positions.
+
+- Seasonal work during summer months
+- Popular for students and seasonal industries
+- Often in tourism, camps, and outdoor recreation
+
+### `VOLUNTEER`
+
+**Value:** `"volunteer"`
+
+Unpaid volunteer positions.
+
+- No monetary compensation
+- Often with non-profits or community organizations
+- May offer other benefits (experience, networking)
+
+## Usage Examples
+
+### Filter by Job Type
+
+```typescript
+import { scrapeJobs, Site, JobType } from 'jobspy-js';
+
+// Search for full-time positions only
+const fullTimeJobs = await scrapeJobs({
+  site_name: [Site.LINKEDIN, Site.INDEED],
+  search_term: 'data scientist',
+  location: 'Seattle, WA',
+  job_type: JobType.FULL_TIME,
+  results_wanted: 50
+});
+```
+
+### String Alternative
+
+```typescript
+// You can also pass job type as a string
+const results = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'nurse',
+  job_type: 'parttime', // equivalent to JobType.PART_TIME
+  results_wanted: 30
+});
+```
+
+### Check Job Types in Results
+
+```typescript
+import { scrapeJobs, JobType } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.GLASSDOOR,
+  search_term: 'marketing',
+  results_wanted: 100
+});
+
+// Filter results by job type
+const internships = results.jobs.filter(job => 
+  job.job_type?.includes(JobType.INTERNSHIP)
+);
+
+const fullTime = results.jobs.filter(job =>
+  job.job_type?.includes(JobType.FULL_TIME)
+);
+
+console.log(`Found ${internships.length} internships`);
+console.log(`Found ${fullTime.length} full-time positions`);
+```
+
+### Multiple Job Types in Results
+
+```typescript
+// Some jobs may have multiple types (e.g., "Full-time or Part-time")
+const job = {
+  title: 'Software Engineer',
+  company_name: 'Tech Corp',
+  job_type: [JobType.FULL_TIME, JobType.CONTRACT], // Array of types
+  // ... other fields
+};
+
+if (job.job_type?.includes(JobType.FULL_TIME)) {
+  console.log('This job offers full-time opportunities');
+}
+```
+
+## International Normalization
+
+JobSpy automatically normalizes job type strings from various languages and formats using the `getJobTypeFromString()` helper function. This ensures consistent categorization across different job boards and regions.
+
+### Examples of Normalized Strings
+
+All of these are normalized to `JobType.FULL_TIME`:
+
+- English: `"fulltime"`, `"full time"`, `"full-time"`
+- Spanish: `"tiempo completo"`, `"jornada completa"`
+- German: `"vollzeit"`
+- French: `"temps plein"`
+- Portuguese: `"tempo integral"`, `"período integral"`
+- Chinese: `"全职"`, `"全職"`
+- Korean: `"정규직"`
+- Thai: `"งานประจำ"`
+- Turkish: `"tam zamanlı"`
+- Arabic: `"دوام كامل"`
+- Dutch: `"voltijds"`
+- Italian: `"tempo pieno"`
+- And 15+ more languages...
+
+Part-time variations:
+- `"parttime"`, `"part time"`, `"part-time"`
+- `"teilzeit"` (German)
+- `"deltid"` (Danish)
+- `"částečný úvazek"` (Czech)
+
+Internship variations:
+- `"internship"`, `"intern"`
+- `"prácticas"` (Spanish)
+- `"praktikum"` (German)
+- `"praktik"` (Swedish)
+- `"ojt (on the job training)"`
+
+## Using the Helper Function
+
+```typescript
+import { getJobTypeFromString } from 'jobspy-js';
+
+// Normalize various formats
+const type1 = getJobTypeFromString('full time'); // JobType.FULL_TIME
+const type2 = getJobTypeFromString('Tiempo Completo'); // JobType.FULL_TIME
+const type3 = getJobTypeFromString('全职'); // JobType.FULL_TIME
+const type4 = getJobTypeFromString('praktikum'); // JobType.INTERNSHIP
+const type5 = getJobTypeFromString('unknown'); // null (not recognized)
+```
+
+## Type Definition
+
+```typescript
+enum JobType {
+  FULL_TIME = "fulltime",
+  PART_TIME = "parttime",
+  CONTRACT = "contract",
+  TEMPORARY = "temporary",
+  INTERNSHIP = "internship",
+  PER_DIEM = "perdiem",
+  NIGHTS = "nights",
+  OTHER = "other",
+  SUMMER = "summer",
+  VOLUNTEER = "volunteer",
+}
+
+// Helper function for normalization
+function getJobTypeFromString(value: string): JobType | null;
+```
+
+## Related
+
+- [JobPost](/api/types/job-post) - Interface that includes job_type field (as an array)
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - Parameters for filtering by job_type
+- [scrapeJobs()](/api/scrape-jobs) - Main function that accepts job_type filter

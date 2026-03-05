@@ -1,0 +1,251 @@
+---
+title: "Setup"
+description: "Connect JobSpy JS to Claude Desktop or other MCP clients"
+---
+
+JobSpy JS includes a built-in MCP (Model Context Protocol) server that exposes job scraping tools to AI agents like Claude Desktop. This allows you to search for jobs and fetch job details directly from your AI assistant.
+
+## What is MCP?
+
+The [Model Context Protocol](https://modelcontextprotocol.io) is an open standard that enables AI assistants to connect to external data sources and tools. JobSpy's MCP server exposes two tools:
+
+- `scrape_jobs` — Search for jobs across multiple job boards
+- `fetch_job` — Get full details for a specific job by ID
+
+## Prerequisites
+
+- Node.js 18+ installed
+- Claude Desktop or another MCP-compatible client
+- JobSpy JS installed globally or locally (`npm install -g jobspy-js` or `npm install jobspy-js`)
+
+<Note>
+For Google Jobs scraping, you must also install Playwright's Chromium browser:
+```bash
+npx playwright install chromium
+```
+</Note>
+
+## Installation
+
+<Steps>
+
+### Install JobSpy JS
+
+Install the package globally to make it available to your MCP client:
+
+```bash
+npm install -g jobspy-js
+```
+
+Or install it locally in your project:
+
+```bash
+npm install jobspy-js
+```
+
+### Locate your MCP client config
+
+For **Claude Desktop**, the configuration file is located at:
+
+<Tabs>
+  <Tab title="macOS">
+    ```
+    ~/Library/Application Support/Claude/claude_desktop_config.json
+    ```
+  </Tab>
+  <Tab title="Windows">
+    ```
+    %APPDATA%\Claude\claude_desktop_config.json
+    ```
+  </Tab>
+  <Tab title="Linux">
+    ```
+    ~/.config/Claude/claude_desktop_config.json
+    ```
+  </Tab>
+</Tabs>
+
+If the file doesn't exist, create it.
+
+### Add JobSpy to your MCP config
+
+Add the following to your `claude_desktop_config.json`:
+
+<CodeGroup>
+
+```json Global Installation
+{
+  "mcpServers": {
+    "jobspy": {
+      "command": "npx",
+      "args": ["-y", "jobspy-js", "--mcp"]
+    }
+  }
+}
+```
+
+```json Local Installation
+{
+  "mcpServers": {
+    "jobspy": {
+      "command": "node",
+      "args": ["/absolute/path/to/node_modules/.bin/jobspy", "--mcp"]
+    }
+  }
+}
+```
+
+```json With Environment Variables
+{
+  "mcpServers": {
+    "jobspy": {
+      "command": "npx",
+      "args": ["-y", "jobspy-js", "--mcp"],
+      "env": {
+        "LINKEDIN_USERNAME": "your-email@example.com",
+        "LINKEDIN_PASSWORD": "your-password",
+        "JOBSPY_CREDS": "1"
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+<Note>
+The `npx -y jobspy-js --mcp` approach automatically uses the latest version or installs it if not present. For production use, consider pinning to a specific version.
+</Note>
+
+### Restart your MCP client
+
+For Claude Desktop:
+1. Quit Claude Desktop completely
+2. Reopen the application
+3. The JobSpy MCP server will start automatically
+
+### Verify the connection
+
+In Claude Desktop, you should see a small hammer icon (🔨) or tool indicator when JobSpy tools are available. Try asking:
+
+```
+Find me 10 software engineer jobs in San Francisco
+```
+
+Claude should recognize the request and offer to use the `scrape_jobs` tool.
+
+</Steps>
+
+## Configuration Options
+
+### Proxy Support
+
+If you need to route requests through a proxy, set the proxy in environment variables:
+
+```json
+{
+  "mcpServers": {
+    "jobspy": {
+      "command": "npx",
+      "args": ["-y", "jobspy-js", "--mcp"],
+      "env": {
+        "HTTP_PROXY": "http://user:pass@proxy.example.com:8080",
+        "HTTPS_PROXY": "http://user:pass@proxy.example.com:8080"
+      }
+    }
+  }
+}
+```
+
+### Authentication Credentials
+
+Some job boards (especially LinkedIn) may require authentication for reliable scraping. Set credentials via environment variables:
+
+```json
+{
+  "mcpServers": {
+    "jobspy": {
+      "command": "npx",
+      "args": ["-y", "jobspy-js", "--mcp"],
+      "env": {
+        "JOBSPY_CREDS": "1",
+        "LINKEDIN_USERNAME": "your-email@example.com",
+        "LINKEDIN_PASSWORD": "your-password",
+        "INDEED_USERNAME": "your-indeed-email@example.com",
+        "INDEED_PASSWORD": "your-indeed-password"
+      }
+    }
+  }
+}
+```
+
+<Warning>
+Never commit configuration files containing credentials to version control. Use environment-specific configs or secret management tools.
+</Warning>
+
+Supported credential environment variables:
+- `LINKEDIN_USERNAME` / `LINKEDIN_PASSWORD`
+- `INDEED_USERNAME` / `INDEED_PASSWORD`
+- `GLASSDOOR_USERNAME` / `GLASSDOOR_PASSWORD`
+- `ZIPRECRUITER_USERNAME` / `ZIPRECRUITER_PASSWORD`
+- `BAYT_USERNAME` / `BAYT_PASSWORD`
+- `NAUKRI_USERNAME` / `NAUKRI_PASSWORD`
+- `BDJOBS_USERNAME` / `BDJOBS_PASSWORD`
+
+Credentials are **only used when `JOBSPY_CREDS=1`** is set.
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="MCP server not appearing in Claude Desktop">
+  1. Verify the config file path is correct
+  2. Check that the JSON syntax is valid (no trailing commas, proper quotes)
+  3. Ensure Node.js is in your system PATH
+  4. Try restarting Claude Desktop completely (quit and reopen)
+  5. Check Claude Desktop logs (Help → View Logs)
+</Accordion>
+
+<Accordion title="'jobspy' command not found">
+  If using a local installation, provide the absolute path to the executable:
+  ```json
+  {
+    "mcpServers": {
+      "jobspy": {
+        "command": "node",
+        "args": ["/Users/yourname/project/node_modules/.bin/jobspy", "--mcp"]
+      }
+    }
+  }
+  ```
+</Accordion>
+
+<Accordion title="Google Jobs not working">
+  Google Jobs requires Playwright's Chromium browser. Install it with:
+  ```bash
+  npx playwright install chromium
+  ```
+  
+  Google also requires a clean residential IP or high-quality proxy. Datacenter IPs are often blocked.
+</Accordion>
+
+<Accordion title="LinkedIn returning no results">
+  LinkedIn frequently rate-limits anonymous scraping. Try:
+  1. Adding credentials via environment variables
+  2. Using a residential proxy
+  3. Reducing `results_wanted` to a smaller number (10-20)
+  4. Enabling credential fallback with `JOBSPY_CREDS=1`
+</Accordion>
+
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Usage Examples" icon="code" href="/mcp/usage">
+    Learn how to use JobSpy tools with Claude Desktop
+  </Card>
+  <Card title="SDK Reference" icon="book" href="/sdk/scrape-jobs">
+    Explore all available parameters and options
+  </Card>
+</CardGroup>

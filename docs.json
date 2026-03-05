@@ -1,122 +1,116 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "JobSpy JS",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#d88982",
+    "light": "#889aa4",
+    "dark": "#31654c"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/eb96eebb-7835-4146-99b0-a86ee97529c4.jpg",
+  "logo": {
+    "light": "https://media.brand.dev/d2941a6c-8988-4d56-9cd3-3d73f763557f.png",
+    "dark": "https://media.brand.dev/d8fc9979-4b84-4224-8f47-dbb025cccd6f.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/borgius/jobspy-js"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/borgius/jobspy-js"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "SDK Guide",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "sdk/scraping-jobs",
+              "sdk/fetching-job-details",
+              "sdk/authentication",
+              "sdk/proxies",
+              "sdk/countries"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "CLI",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "cli/overview",
+              "cli/commands",
+              "cli/config-profiles",
+              "cli/deduplication"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "MCP Server",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "mcp/setup",
+              "mcp/usage"
+            ]
+          },
+          {
+            "group": "Job Boards",
+            "pages": [
+              "job-boards/linkedin",
+              "job-boards/indeed",
+              "job-boards/glassdoor",
+              "job-boards/google-jobs",
+              "job-boards/google-careers",
+              "job-boards/ziprecruiter",
+              "job-boards/bayt",
+              "job-boards/naukri",
+              "job-boards/bdjobs"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core Functions",
             "pages": [
-              "api-reference/introduction"
+              "api/scrape-jobs",
+              "api/fetch-linkedin-job",
+              "api/fetch-job-details"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Types & Interfaces",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/types/job-post",
+              "api/types/job-response",
+              "api/types/scrape-jobs-params",
+              "api/types/location",
+              "api/types/compensation",
+              "api/types/credentials"
+            ]
+          },
+          {
+            "group": "Enums",
+            "pages": [
+              "api/enums/site",
+              "api/enums/job-type",
+              "api/enums/compensation-interval",
+              "api/enums/description-format"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,317 @@
+---
+title: LinkedIn
+description: Scrape job postings from LinkedIn using HTML parsing with optional authenticated fallback
+---
+
+## Overview
+
+LinkedIn is one of the largest professional networking platforms, hosting millions of job postings worldwide. JobSpy JS scrapes LinkedIn using **HTML parsing** of the public job search pages.
+
+<Note>
+  LinkedIn aggressively rate-limits scrapers. For best results:
+  - Use residential proxies or clean IPs
+  - Enable credential fallback for authenticated access when blocked
+  - Keep `results_wanted` moderate (≤50 per run)
+</Note>
+
+## Scraping Method
+
+**HTML scraping** of `linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search`
+
+- Parses job cards from search result pages
+- Extracts basic metadata (title, company, location, salary)
+- Optionally fetches full job descriptions via separate requests
+- Supports authenticated fallback when anonymous access is blocked (429 errors or auth walls)
+
+## Authentication & Credentials
+
+LinkedIn may block anonymous scraping with 429 rate limits or redirect to auth walls. When this happens, JobSpy can automatically fall back to authenticated scraping if credentials are configured.
+
+### Enable credential fallback
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  use_creds: true,
+  linkedin_username: process.env.LINKEDIN_USERNAME,
+  linkedin_password: process.env.LINKEDIN_PASSWORD,
+});
+```
+
+### Environment variables
+
+```bash
+export LINKEDIN_USERNAME="your-email@example.com"
+export LINKEDIN_PASSWORD="your-password"
+export JOBSPY_CREDS=1  # Enable credential fallback globally
+```
+
+### CLI usage
+
+```bash
+jobspy -s linkedin -q "react developer" --creds \
+  --linkedin-username me@email.com \
+  --linkedin-password secret
+```
+
+<Warning>
+  Credentials are **only used when anonymous scraping fails**. JobSpy will always try anonymous access first. Authenticated scraping may trigger additional LinkedIn security checks.
+</Warning>
+
+## LinkedIn-Specific Parameters
+
+### `linkedin_fetch_description`
+
+By default, LinkedIn search results include only basic job metadata. Set this to `true` to fetch full job descriptions (slower but more complete data).
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "product manager",
+  linkedin_fetch_description: true,  // Fetch full descriptions
+});
+```
+
+**Trade-off:**
+- `false` (default): Fast, but descriptions are empty
+- `true`: Slower (1 extra request per job), but includes full job details, seniority level, employment type, industry, etc.
+
+### `linkedin_company_ids`
+
+Filter results to specific companies using LinkedIn company IDs:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  linkedin_company_ids: [1441, 1035],  // Google, Amazon
+});
+```
+
+**Finding company IDs:**  
+Visit a company's LinkedIn page and extract the ID from the URL:  
+`https://www.linkedin.com/company/1441/` → company ID is `1441`
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "data scientist",
+  location: "New York, NY",
+  results_wanted: 20,
+  distance: 25,
+  is_remote: false,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`${job.location?.city}, ${job.location?.state}`);
+  console.log(`Posted: ${job.date_posted}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+// By job ID
+const job = await fetchLinkedInJob("4127292817");
+
+// Or by full URL
+const job2 = await fetchLinkedInJob(
+  "https://www.linkedin.com/jobs/view/4127292817"
+);
+
+console.log(job.description);        // Full job description (markdown)
+console.log(job.job_level);          // "mid-senior level"
+console.log(job.job_type);           // ["fulltime"]
+console.log(job.company_industry);   // "Software Development"
+console.log(job.job_url_direct);     // Direct application URL (if available)
+```
+
+### Filter by job type and recency
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "marketing manager",
+  location: "Los Angeles, CA",
+  job_type: "fulltime",
+  hours_old: 72,  // Posted in last 3 days
+  results_wanted: 30,
+});
+```
+
+### With credential fallback
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "backend engineer",
+  location: "Remote",
+  use_creds: true,
+  linkedin_username: "me@example.com",
+  linkedin_password: "secret",
+  results_wanted: 50,
+});
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City, state, or region |
+| `distance` | ✅ | Radius in miles (default: 50) |
+| `is_remote` | ✅ | Remote-only filter |
+| `job_type` | ✅ | `fulltime`, `parttime`, `contract`, `internship`, `temporary` |
+| `hours_old` | ✅ | Filter by posting age |
+| `easy_apply` | ✅ | LinkedIn Easy Apply jobs only |
+| `linkedin_company_ids` | ✅ | Filter by specific companies |
+
+## Returned Fields
+
+When `linkedin_fetch_description: false` (default):
+
+- `id`, `title`, `company_name`, `company_url`, `location`, `date_posted`, `job_url`, `compensation` (if available), `is_remote`
+
+When `linkedin_fetch_description: true`:
+
+- All of the above, plus:
+- `description` (full job description in markdown/HTML/plain)
+- `job_level` (e.g., "entry level", "mid-senior level")
+- `job_type` (e.g., `["fulltime"]`)
+- `company_industry` (e.g., "Software Development")
+- `job_function` (e.g., "Engineering")
+- `job_url_direct` (direct application URL, if available)
+- `company_logo`
+- `emails` (extracted from description)
+
+## Rate Limits & Best Practices
+
+<Warning>
+  LinkedIn is one of the most aggressive platforms for blocking scrapers. Follow these best practices:
+</Warning>
+
+### Use proxies
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "data engineer",
+  proxies: ["user:pass@proxy1.com:8080", "user:pass@proxy2.com:8080"],
+});
+```
+
+### Keep results_wanted moderate
+
+LinkedIn typically allows ~10 pages (100 jobs) before blocking. Request fewer results per run:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "python developer",
+  results_wanted: 30,  // Safe range
+});
+```
+
+### Add delays between runs
+
+The scraper includes built-in delays (3-7 seconds between pages). For multiple consecutive runs, add manual delays:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+for (const term of ["engineer", "designer", "manager"]) {
+  const result = await scrapeJobs({
+    site_name: ["linkedin"],
+    search_term: term,
+    results_wanted: 20,
+  });
+  console.log(`Found ${result.jobs.length} ${term} jobs`);
+  
+  // Wait 30 seconds between searches
+  await new Promise(resolve => setTimeout(resolve, 30_000));
+}
+```
+
+### Use credential fallback for higher limits
+
+Authenticated scraping (when enabled) can sometimes bypass anonymous rate limits:
+
+```bash
+JOBSPY_CREDS=1 LINKEDIN_USERNAME=me@email.com LINKEDIN_PASSWORD=secret \
+  jobspy -s linkedin -q "full stack developer" -n 50
+```
+
+## Troubleshooting
+
+### 429 Rate Limit Error
+
+**Symptom:** `429 Response - Blocked by LinkedIn for too many requests`
+
+**Solutions:**
+1. Enable credential fallback with `use_creds: true`
+2. Use residential proxies
+3. Reduce `results_wanted`
+4. Add longer delays between runs
+
+### Auth-wall redirect
+
+**Symptom:** Jobs return empty or redirect to signup page
+
+**Solutions:**
+1. Enable credential fallback
+2. Use a different IP/proxy
+3. Clear cookies and retry
+
+### Empty descriptions
+
+**Symptom:** `description` field is empty
+
+**Solution:** Set `linkedin_fetch_description: true` to fetch full descriptions
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s linkedin -q "software engineer" -l "Seattle, WA" -n 20
+
+# Remote jobs only
+jobspy -s linkedin -q "frontend developer" -r -n 30
+
+# With full descriptions
+jobspy -s linkedin -q "data analyst" --linkedin-fetch-description -n 15
+
+# Filter by company
+jobspy -s linkedin -q "engineer" --linkedin-company-ids 1441 1035 -n 20
+
+# Recent postings only (last 24 hours)
+jobspy -s linkedin -q "product manager" --hours-old 24 -n 10
+
+# With credential fallback
+JOBSPY_CREDS=1 jobspy -s linkedin -q "senior engineer" -n 50
+
+# Fetch single job by ID
+jobspy --describe 4127292817
+jobspy --describe https://www.linkedin.com/jobs/view/4127292817
+```
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/linkedin/index.ts`
+- Key: `linkedin`
+- Site enum: `Site.LINKEDIN`

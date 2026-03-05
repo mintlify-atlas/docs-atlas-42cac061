@@ -1,0 +1,173 @@
+---
+title: JobResponse
+description: The response object returned by scrapeJobs()
+---
+
+## Overview
+
+The `JobResponse` interface is the top-level response object returned by the `scrapeJobs()` function. It contains an array of job postings scraped from the specified job boards.
+
+## Interface Definition
+
+```typescript
+export interface JobResponse {
+  jobs: JobPost[];
+}
+```
+
+## Fields
+
+<ResponseField name="jobs" type="JobPost[]" required>
+  Array of job postings scraped from the job boards. Each element is a [JobPost](/api/types/job-post) object containing all available information about a single job.
+</ResponseField>
+
+## Example Usage
+
+### Basic Scraping
+
+```typescript
+import { scrapeJobs, JobResponse, JobPost } from 'jobspy-js';
+
+const response: JobResponse = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'product manager',
+  location: 'New York, NY',
+  results_wanted: 20
+});
+
+console.log(`Found ${response.jobs.length} jobs`);
+
+// Iterate through results
+response.jobs.forEach((job: JobPost) => {
+  console.log(`${job.title} - ${job.company_name}`);
+});
+```
+
+### Filtering Results
+
+```typescript
+import { scrapeJobs, JobType } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['indeed', 'linkedin'],
+  search_term: 'data scientist',
+  location: 'remote',
+  is_remote: true,
+  results_wanted: 50
+});
+
+// Filter for jobs with compensation data
+const jobsWithSalary = response.jobs.filter(
+  (job) => job.compensation?.min_amount !== undefined
+);
+
+console.log(`${jobsWithSalary.length} jobs have salary information`);
+
+// Filter for full-time positions
+const fullTimeJobs = response.jobs.filter((job) =>
+  job.job_type?.includes(JobType.FULL_TIME)
+);
+
+console.log(`${fullTimeJobs.length} full-time positions`);
+```
+
+### Sorting and Grouping
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed', 'glassdoor'],
+  search_term: 'software engineer',
+  location: 'Austin, TX',
+  results_wanted: 100
+});
+
+// Group by company
+const byCompany = response.jobs.reduce((acc, job) => {
+  const company = job.company_name || 'Unknown';
+  if (!acc[company]) acc[company] = [];
+  acc[company].push(job);
+  return acc;
+}, {} as Record<string, JobPost[]>);
+
+console.log(`Jobs from ${Object.keys(byCompany).length} companies`);
+
+// Sort by date posted (most recent first)
+const sortedJobs = [...response.jobs].sort((a, b) => {
+  const dateA = a.date_posted ? new Date(a.date_posted).getTime() : 0;
+  const dateB = b.date_posted ? new Date(b.date_posted).getTime() : 0;
+  return dateB - dateA;
+});
+
+console.log('Most recent job:', sortedJobs[0].title);
+```
+
+### Exporting Results
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+import fs from 'fs';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'machine learning engineer',
+  results_wanted: 30,
+  description_format: 'plain'
+});
+
+// Export to JSON
+fs.writeFileSync(
+  'jobs.json',
+  JSON.stringify(response, null, 2)
+);
+
+// Export to CSV
+const csv = [
+  'Title,Company,Location,Salary,URL',
+  ...response.jobs.map((job) => {
+    const location = job.location
+      ? `${job.location.city || ''}, ${job.location.state || ''}`
+      : 'N/A';
+    const salary = job.compensation
+      ? `$${job.compensation.min_amount}-$${job.compensation.max_amount}`
+      : 'N/A';
+    return `"${job.title}","${job.company_name}","${location}","${salary}","${job.job_url}"`;
+  })
+].join('\n');
+
+fs.writeFileSync('jobs.csv', csv);
+```
+
+## Handling Empty Results
+
+If no jobs are found matching your criteria, `response.jobs` will be an empty array:
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'very specific obscure job title',
+  location: 'Small Town, State'
+});
+
+if (response.jobs.length === 0) {
+  console.log('No jobs found. Try broadening your search criteria.');
+} else {
+  console.log(`Found ${response.jobs.length} jobs`);
+}
+```
+
+## Notes
+
+- The `jobs` array may contain fewer results than `results_wanted` if the job boards don't have enough matching positions.
+- Jobs are returned in the order provided by the job boards (usually most relevant first).
+- Duplicate jobs across different sites are automatically filtered unless `skip_dedup: true` is set in the parameters.
+- The response object is serializable to JSON for easy storage and transport.
+
+## Related Types
+
+- [JobPost](/api/types/job-post) - Individual job posting structure
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - Parameters for scrapeJobs()
+- [scrapeJobs()](/api/scrape-jobs) - Main scraping function

@@ -1,0 +1,377 @@
+---
+title: BDJobs
+description: Scrape job postings from BDJobs, Bangladesh's leading job portal
+---
+
+## Overview
+
+BDJobs.com is Bangladesh's premier job site, connecting job seekers with employers across all industries. JobSpy JS scrapes BDJobs using its **REST API**, providing fast access to job listings in Bangladesh.
+
+## Scraping Method
+
+**REST API** at `https://api.bdjobs.com/Jobs/api/JobSearch/GetJobSearch`
+
+- Queries the public BDJobs search API
+- Returns JSON with job cards and metadata
+- Supports pagination
+- Includes both premium and regular listings
+- Minimal rate limiting
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "software engineer",
+  results_wanted: 30,
+});
+
+console.log(`Found ${result.jobs.length} jobs on BDJobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}`);
+  console.log(`Posted: ${job.date_posted}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Search by role
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "accountant",
+  results_wanted: 50,
+});
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by BDJobs job ID
+const job = await fetchJobDetails("bdjobs", "123456");
+
+console.log(job.title);
+console.log(job.description);  // Full job description
+console.log(job.company_name);
+```
+
+### Multiple searches
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const roles = ["engineer", "manager", "designer", "developer"];
+const allJobs = [];
+
+for (const role of roles) {
+  const result = await scrapeJobs({
+    site_name: ["bdjobs"],
+    search_term: role,
+    results_wanted: 25,
+  });
+  allJobs.push(...result.jobs);
+  
+  // Small delay between searches
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
+
+console.log(`Total: ${allJobs.length} jobs across ${roles.length} roles`);
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ❌ | Not supported; results are country-wide (Bangladesh) |
+| `distance` | ❌ | Not supported |
+| `is_remote` | ❌ | Not supported |
+| `job_type` | ❌ | Not supported |
+| `hours_old` | ❌ | Not supported |
+| `easy_apply` | ❌ | Not supported |
+
+<Warning>
+  BDJobs has minimal search filter support. Use `search_term` and filter results in code based on returned metadata.
+</Warning>
+
+## Returned Fields
+
+BDJobs returns basic job information:
+
+### Core fields
+- `id` (BDJobs job ID)
+- `title`
+- `company_name`
+- `location` (usually includes city and "Bangladesh")
+- `date_posted` (ISO date string)
+- `job_url` (direct link to job detail page)
+
+### Job metadata
+- `description` (short job context from search results; full description when fetching a single job)
+
+### When fetching a single job
+
+Using `fetchJobDetails()` may return additional fields:
+- Full `description` (if available on the detail page)
+
+<Note>
+  BDJobs search results include minimal data. For full job details, visit the `job_url` or use `fetchJobDetails()`.
+</Note>
+
+## Rate Limits & Best Practices
+
+### Minimal rate limiting
+
+BDJobs API has lenient rate limits. You can safely scrape moderate batches:
+
+```typescript
+// ✅ Good: Fast and reliable
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "engineer",
+  results_wanted: 100,  // ~5-10 seconds
+});
+```
+
+### Use proxies for high volume
+
+For bulk scraping or parallel searches, use proxies:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "developer",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 200,
+});
+```
+
+### Add delays for multiple searches
+
+For consecutive searches, add small delays:
+
+```typescript
+for (const term of ["engineer", "designer", "manager"]) {
+  const result = await scrapeJobs({
+    site_name: ["bdjobs"],
+    search_term: term,
+    results_wanted: 30,
+  });
+  console.log(`Found ${result.jobs.length} ${term} jobs`);
+  
+  await new Promise(resolve => setTimeout(resolve, 2000));
+}
+```
+
+## Troubleshooting
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Causes:**
+1. No jobs match your search term
+2. API error
+
+**Solutions:**
+1. Try broader search terms (e.g., "engineer" instead of "senior staff engineer")
+2. Check the API status by visiting [bdjobs.com](https://bdjobs.com)
+3. Try again after a few minutes
+
+### API error messages
+
+**Symptom:** "BDJobs API error: ..." in logs
+
+**Cause:** API returned an error status
+
+**Solutions:**
+1. Check for updates to `jobspy-js`
+2. Wait a few minutes and retry
+3. Use a proxy if blocked by IP
+
+### Missing descriptions
+
+**Symptom:** `description` field is empty or very short
+
+**Note:** BDJobs search results include only short job snippets. For full descriptions:
+1. Visit the `job_url`, or
+2. Use `fetchJobDetails()` (though full descriptions may not always be available)
+
+### Rate limiting
+
+**Symptom:** Requests fail after many searches
+
+**Solutions:**
+1. Use proxies
+2. Add delays between searches (1-2 seconds)
+3. Reduce `results_wanted`
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s bdjobs -q "software engineer" -n 30
+
+# Export to CSV
+jobspy -s bdjobs -q "accountant" -n 50 -o bdjobs-accountant.csv
+
+# Export to JSON
+jobspy -s bdjobs -q "manager" -n 100 -o bdjobs-jobs.json
+
+# Fetch single job by ID
+jobspy -s bdjobs --id 123456
+
+# Multiple roles
+jobspy -s bdjobs -q "engineer" -n 50
+jobspy -s bdjobs -q "designer" -n 50
+```
+
+## Use Cases
+
+### Job market analysis
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const roles = [
+  "software engineer",
+  "web developer",
+  "mobile developer",
+  "data analyst",
+  "project manager",
+];
+
+const jobCounts: Record<string, number> = {};
+
+for (const role of roles) {
+  const result = await scrapeJobs({
+    site_name: ["bdjobs"],
+    search_term: role,
+    results_wanted: 200,
+  });
+  jobCounts[role] = result.jobs.length;
+  await new Promise(resolve => setTimeout(resolve, 2000));
+}
+
+console.log("Job availability in Bangladesh:");
+for (const [role, count] of Object.entries(jobCounts)) {
+  console.log(`${role}: ${count} jobs`);
+}
+```
+
+### Location distribution
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "engineer",
+  results_wanted: 200,
+});
+
+const byCit: Record<string, number> = {};
+for (const job of result.jobs) {
+  const city = job.location?.city ?? "Unknown";
+  byCity[city] = (byCity[city] ?? 0) + 1;
+}
+
+const topCities = Object.entries(byCity)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 10);
+
+console.log("Top 10 cities with engineering jobs:");
+for (const [city, count] of topCities) {
+  console.log(`${city}: ${count} jobs`);
+}
+```
+
+### Monitor new postings
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+import fs from "fs";
+
+const LAST_RUN_FILE = "bdjobs-last-run.json";
+
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "software engineer",
+  results_wanted: 100,
+});
+
+const lastRunIds = fs.existsSync(LAST_RUN_FILE)
+  ? JSON.parse(fs.readFileSync(LAST_RUN_FILE, "utf-8"))
+  : [];
+
+const lastRunSet = new Set(lastRunIds);
+const newJobs = result.jobs.filter(job => !lastRunSet.has(job.id));
+
+console.log(`${newJobs.length} new jobs since last run`);
+for (const job of newJobs) {
+  console.log(`NEW: ${job.title} at ${job.company_name}`);
+}
+
+const currentIds = result.jobs.map(job => job.id);
+fs.writeFileSync(LAST_RUN_FILE, JSON.stringify(currentIds));
+```
+
+### Company analysis
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["bdjobs"],
+  search_term: "developer",
+  results_wanted: 300,
+});
+
+const byCompany: Record<string, number> = {};
+for (const job of result.jobs) {
+  const company = job.company_name ?? "Unknown";
+  byCompany[company] = (byCompany[company] ?? 0) + 1;
+}
+
+const topEmployers = Object.entries(byCompany)
+  .sort((a, b) => b[1] - a[1])
+  .slice(0, 20);
+
+console.log("Top 20 employers hiring developers:");
+for (const [company, count] of topEmployers) {
+  console.log(`${company}: ${count} openings`);
+}
+```
+
+## Regional Context
+
+### Language
+
+BDJobs operates in **English** and **Bengali**. JobSpy scrapes the English version.
+
+### Job markets
+
+BDJobs covers all major cities in Bangladesh:
+- **Dhaka** (capital, largest job market)
+- **Chittagong** (port city, commercial hub)
+- **Sylhet**
+- **Khulna**
+- **Rajshahi**
+
+### Currency
+
+Salary information (when disclosed) is in **Bangladeshi Taka (BDT)**.
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/bdjobs/index.ts`
+- Key: `bdjobs`
+- Site enum: `Site.BDJOBS`

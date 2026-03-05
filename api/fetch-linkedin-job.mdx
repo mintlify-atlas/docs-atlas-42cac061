@@ -1,0 +1,195 @@
+---
+title: fetchLinkedInJob()
+description: Fetch full details for a single LinkedIn job by ID or URL
+---
+
+## Overview
+
+Fetch full details for a single LinkedIn job by ID or URL. Useful for getting descriptions, seniority level, and other metadata without running a full search.
+
+This is a specialized function for LinkedIn. For a universal function that works with all supported sites, see [fetchJobDetails()](/api/fetch-job-details).
+
+## Signature
+
+```typescript
+async function fetchLinkedInJob(
+  jobIdOrUrl: string,
+  options?: {
+    format?: string;
+    proxies?: string | string[];
+  }
+): Promise<LinkedInJobDetails>
+```
+
+## Parameters
+
+<ParamField path="jobIdOrUrl" type="string" required>
+  LinkedIn job ID (e.g. `"4127292817"`) or full URL (e.g. `"https://www.linkedin.com/jobs/view/4127292817"`)
+  
+  The function automatically extracts the job ID from URLs, so both formats work.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Optional configuration object
+</ParamField>
+
+<ParamField path="options.format" type="string" default="markdown">
+  Description format:
+  - `"markdown"` — converts HTML to Markdown (default)
+  - `"html"` — preserves original HTML
+  - `"plain"` — strips all markup
+</ParamField>
+
+<ParamField path="options.proxies" type="string | string[]">
+  Proxy server(s) for the request. Accepts formats:
+  - `"host:port"`
+  - `"user:pass@host:port"`
+  - `"http://host:port"`
+  - `"socks5://host:port"`
+  
+  Multiple proxies rotate round-robin.
+</ParamField>
+
+## Return Value
+
+Returns a `LinkedInJobDetails` object with the following fields:
+
+<ResponseField name="job_url" type="string">
+  Canonical LinkedIn job URL (e.g. `"https://www.linkedin.com/jobs/view/4127292817"`)
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Full job description, formatted according to the `format` option
+</ResponseField>
+
+<ResponseField name="job_level" type="string">
+  Seniority level (e.g. `"mid-senior level"`, `"entry level"`, `"director"`)
+</ResponseField>
+
+<ResponseField name="job_type" type="string[]">
+  Array of employment types (e.g. `["fulltime"]`, `["contract", "parttime"]`)
+</ResponseField>
+
+<ResponseField name="job_function" type="string">
+  Job function category (e.g. `"Engineering"`, `"Product Management"`)
+</ResponseField>
+
+<ResponseField name="company_industry" type="string">
+  Company industry classification (e.g. `"Software Development"`, `"Financial Services"`)
+</ResponseField>
+
+<ResponseField name="company_logo" type="string">
+  Company logo image URL
+</ResponseField>
+
+<ResponseField name="job_url_direct" type="string">
+  Direct employer/ATS application URL (if available)
+</ResponseField>
+
+## Examples
+
+### Fetch by Job ID
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob("4127292817");
+
+console.log(job.description);
+console.log(job.job_level);        // "mid-senior level"
+console.log(job.job_type);         // ["fulltime"]
+console.log(job.company_industry); // "Software Development"
+console.log(job.job_url_direct);   // direct application URL
+```
+
+### Fetch by URL
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob(
+  "https://www.linkedin.com/jobs/view/4127292817"
+);
+
+console.log(job.description);
+```
+
+### With Plain Text Format
+
+```typescript
+const job = await fetchLinkedInJob("4127292817", {
+  format: "plain",
+});
+
+// Description will have all markup stripped
+console.log(job.description);
+```
+
+### With Proxy
+
+```typescript
+const job = await fetchLinkedInJob("4127292817", {
+  format: "html",
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+### With Multiple Proxies
+
+```typescript
+const job = await fetchLinkedInJob("4127292817", {
+  proxies: [
+    "user:pass@proxy1.example.com:8080",
+    "user:pass@proxy2.example.com:8080",
+  ],
+});
+```
+
+### Extract Job ID from Search Results
+
+```typescript
+import { scrapeJobs, fetchLinkedInJob } from "jobspy-js";
+
+// First, search for jobs
+const searchResult = await scrapeJobs({
+  site_name: "linkedin",
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 5,
+});
+
+// Then fetch full details for each job
+for (const job of searchResult.jobs) {
+  // Extract ID from URL
+  const jobId = job.job_url.split("/").pop()?.split("?")[0];
+  
+  if (jobId) {
+    const details = await fetchLinkedInJob(jobId);
+    console.log(`${job.title}: ${details.job_level}`);
+  }
+}
+```
+
+## Error Handling
+
+```typescript
+try {
+  const job = await fetchLinkedInJob("4127292817");
+  console.log(job.description);
+} catch (err) {
+  console.error("Failed to fetch job:", err);
+}
+```
+
+## Notes
+
+- This function initializes a new LinkedIn session for each call
+- The session is automatically closed after fetching
+- For bulk operations, consider using `scrapeJobs()` with `linkedin_fetch_description: true` instead
+- Job IDs are extracted from URLs by taking the last segment before any query parameters
+
+## Related
+
+- [scrapeJobs()](/api/scrape-jobs) - Search and scrape multiple job boards
+- [fetchJobDetails()](/api/fetch-job-details) - Fetch details for any job by ID (works with all sites)
+- [Types Reference](/api/types/scrape-jobs-params) - Full type definitions

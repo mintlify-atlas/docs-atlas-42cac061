@@ -1,0 +1,510 @@
+---
+title: scrapeJobs()
+description: Scrape job postings from multiple job boards concurrently
+---
+
+## Overview
+
+The main entry point for jobspy-js. Scrapes one or more job boards concurrently and returns a unified, flattened result set.
+
+All sites are scraped **in parallel** via `Promise.allSettled`. If one site fails, the others still return results. Results are sorted by site name (alphabetical), then by `date_posted` descending (newest first).
+
+## Signature
+
+```typescript
+async function scrapeJobs(
+  params?: ScrapeJobsParams
+): Promise<ScrapeJobsResult>
+```
+
+## Parameters
+
+<ParamField path="params" type="ScrapeJobsParams" default="{}">
+  Configuration object for the scraping operation. All fields are optional.
+</ParamField>
+
+### ScrapeJobsParams Properties
+
+<ParamField path="site_name" type="string | string[] | Site | Site[]" default="all sites">
+  Job boards to scrape. Accepts enum values, string keys, or arrays. Site names are normalized — `"ziprecruiter"`, `"zip_recruiter"`, and `"zip-recruiter"` all work.
+  
+  Supported sites: `linkedin`, `indeed`, `glassdoor`, `google`, `google_careers`, `zip_recruiter`, `bayt`, `naukri`, `bdjobs`
+</ParamField>
+
+<ParamField path="search_term" type="string">
+  Job title or search query (e.g. `"software engineer"`, `"react developer"`)
+</ParamField>
+
+<ParamField path="google_search_term" type="string">
+  Overrides `search_term` for the Google scraper only. Useful for customizing Google's broader search syntax.
+</ParamField>
+
+<ParamField path="location" type="string">
+  Job location (e.g. `"San Francisco, CA"`, `"London"`, `"Remote"`)
+</ParamField>
+
+<ParamField path="distance" type="number" default="50">
+  Search radius in miles from the specified location
+</ParamField>
+
+<ParamField path="is_remote" type="boolean" default="false">
+  Filter for remote jobs only
+</ParamField>
+
+<ParamField path="job_type" type="string">
+  Filter by employment type. Valid values:
+  - `"fulltime"`
+  - `"parttime"`
+  - `"contract"`
+  - `"internship"`
+  - `"temporary"`
+</ParamField>
+
+<ParamField path="easy_apply" type="boolean">
+  Filter for easy-apply jobs (supported on LinkedIn, Indeed, Glassdoor)
+</ParamField>
+
+<ParamField path="results_wanted" type="number" default="15">
+  Maximum number of results **per site**. Total results may be up to `results_wanted * number_of_sites`.
+</ParamField>
+
+<ParamField path="country_indeed" type="string" default="usa">
+  Country for Indeed and Glassdoor regional domains. See [Country Support](/sdk/countries) for the full list of 60+ supported countries.
+</ParamField>
+
+<ParamField path="proxies" type="string | string[]">
+  Proxy server(s) for rotating requests. Accepts formats:
+  - `"host:port"`
+  - `"user:pass@host:port"`
+  - `"http://host:port"`
+  - `"socks5://host:port"`
+  
+  Multiple proxies rotate round-robin.
+</ParamField>
+
+<ParamField path="description_format" type="string" default="markdown">
+  Format for job descriptions. Valid values:
+  - `"markdown"` — converts HTML to Markdown
+  - `"html"` — preserves original HTML
+  - `"plain"` — strips all markup
+</ParamField>
+
+<ParamField path="linkedin_fetch_description" type="boolean" default="false">
+  Fetch full job descriptions from LinkedIn. Requires an extra HTTP request per job (slower).
+</ParamField>
+
+<ParamField path="indeed_fetch_description" type="boolean" default="false">
+  Visit the Indeed job page or direct link to scrape the full description
+</ParamField>
+
+<ParamField path="linkedin_company_ids" type="number[]">
+  Filter LinkedIn results to specific company IDs. Example: `[1441, 1035]` for Google and Microsoft.
+</ParamField>
+
+<ParamField path="offset" type="number" default="0">
+  Skip the first N results (pagination offset)
+</ParamField>
+
+<ParamField path="hours_old" type="number">
+  Only return jobs posted within the last N hours
+</ParamField>
+
+<ParamField path="enforce_annual_salary" type="boolean" default="false">
+  Convert all salary figures to annual equivalents (hourly × 2080, monthly × 12, etc.)
+</ParamField>
+
+<ParamField path="verbose" type="number" default="0">
+  Logging verbosity level:
+  - `0` — errors only
+  - `1` — warnings
+  - `2` — all logs
+</ParamField>
+
+<ParamField path="use_creds" type="boolean" default="false">
+  Enable authenticated scraping fallback when anonymous access is blocked (e.g. LinkedIn 429s). Can also be set via `JOBSPY_CREDS=1` environment variable.
+</ParamField>
+
+<ParamField path="credentials" type="ProviderCredentials">
+  Pre-built credentials object. Takes precedence over individual credential fields below.
+</ParamField>
+
+<ParamField path="linkedin_username" type="string">
+  LinkedIn username/email. Also reads from `LINKEDIN_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="linkedin_password" type="string">
+  LinkedIn password. Also reads from `LINKEDIN_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="indeed_username" type="string">
+  Indeed username/email. Also reads from `INDEED_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="indeed_password" type="string">
+  Indeed password. Also reads from `INDEED_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="glassdoor_username" type="string">
+  Glassdoor username/email. Also reads from `GLASSDOOR_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="glassdoor_password" type="string">
+  Glassdoor password. Also reads from `GLASSDOOR_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="ziprecruiter_username" type="string">
+  ZipRecruiter username/email. Also reads from `ZIPRECRUITER_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="ziprecruiter_password" type="string">
+  ZipRecruiter password. Also reads from `ZIPRECRUITER_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="bayt_username" type="string">
+  Bayt username/email. Also reads from `BAYT_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="bayt_password" type="string">
+  Bayt password. Also reads from `BAYT_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="naukri_username" type="string">
+  Naukri username/email. Also reads from `NAUKRI_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="naukri_password" type="string">
+  Naukri password. Also reads from `NAUKRI_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="bdjobs_username" type="string">
+  BDJobs username/email. Also reads from `BDJOBS_USERNAME` environment variable.
+</ParamField>
+
+<ParamField path="bdjobs_password" type="string">
+  BDJobs password. Also reads from `BDJOBS_PASSWORD` environment variable.
+</ParamField>
+
+<ParamField path="profile" type="string">
+  Named profile for deduplication tracking. When set, jobspy tracks seen job URLs and filters duplicates across runs.
+</ParamField>
+
+<ParamField path="state_file" type="string">
+  Path to custom state file for profile tracking. Defaults to `jobspy.json` in current directory.
+</ParamField>
+
+<ParamField path="skip_dedup" type="boolean" default="false">
+  Skip deduplication filtering (state is still updated for next run)
+</ParamField>
+
+## Return Value
+
+<ResponseField name="jobs" type="FlatJobRecord[]">
+  Array of job postings. Each job is a flat record with all nested structures expanded to top-level fields.
+</ResponseField>
+
+<ResponseField name="totalScraped" type="number">
+  Total number of jobs scraped across all sites before deduplication
+</ResponseField>
+
+<ResponseField name="newCount" type="number">
+  Number of new jobs after deduplication filtering (equals `totalScraped` when not using profiles)
+</ResponseField>
+
+<ResponseField name="profile" type="object">
+  Profile information (only present when using `profile` parameter)
+  
+  <ResponseField name="profile.name" type="string">
+    Profile name
+  </ResponseField>
+  
+  <ResponseField name="profile.lastRunAt" type="string | null">
+    ISO timestamp of last run
+  </ResponseField>
+  
+  <ResponseField name="profile.stateFile" type="string">
+    Path to state file used for tracking
+  </ResponseField>
+</ResponseField>
+
+### FlatJobRecord Fields
+
+Each job in the `jobs` array contains:
+
+<ResponseField name="id" type="string">
+  Unique job ID with site prefix (e.g. `"li-123"`, `"in-abc"`)
+</ResponseField>
+
+<ResponseField name="site" type="string">
+  Source site key (e.g. `"linkedin"`, `"indeed"`)
+</ResponseField>
+
+<ResponseField name="job_url" type="string">
+  Canonical job URL on the board
+</ResponseField>
+
+<ResponseField name="job_url_direct" type="string">
+  Direct employer/ATS URL (LinkedIn, Indeed, ZipRecruiter)
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Job title
+</ResponseField>
+
+<ResponseField name="company" type="string">
+  Company name
+</ResponseField>
+
+<ResponseField name="location" type="string">
+  Formatted as `"City, State, Country"`
+</ResponseField>
+
+<ResponseField name="date_posted" type="string">
+  ISO date `"YYYY-MM-DD"`
+</ResponseField>
+
+<ResponseField name="job_type" type="string">
+  Comma-separated employment types (e.g. `"fulltime, contract"`)
+</ResponseField>
+
+<ResponseField name="salary_source" type="string">
+  How salary was obtained: `"direct_data"` or `"description"`
+</ResponseField>
+
+<ResponseField name="interval" type="string">
+  Pay interval: `"yearly"`, `"monthly"`, `"weekly"`, `"daily"`, or `"hourly"`
+</ResponseField>
+
+<ResponseField name="min_amount" type="number">
+  Minimum salary/pay amount
+</ResponseField>
+
+<ResponseField name="max_amount" type="number">
+  Maximum salary/pay amount
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  Currency code (e.g. `"USD"`, `"EUR"`)
+</ResponseField>
+
+<ResponseField name="is_remote" type="boolean">
+  Whether the job is remote
+</ResponseField>
+
+<ResponseField name="job_level" type="string">
+  Seniority level (e.g. `"mid-senior level"`) — LinkedIn only
+</ResponseField>
+
+<ResponseField name="job_function" type="string">
+  Job function category — LinkedIn only
+</ResponseField>
+
+<ResponseField name="listing_type" type="string">
+  E.g. `"sponsored"` — LinkedIn, Indeed
+</ResponseField>
+
+<ResponseField name="emails" type="string">
+  Comma-separated emails extracted from description
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Full job description (format per `description_format` parameter)
+</ResponseField>
+
+<ResponseField name="company_industry" type="string">
+  Industry classification — LinkedIn, Indeed
+</ResponseField>
+
+<ResponseField name="company_url" type="string">
+  Company page on the job board — LinkedIn, Glassdoor
+</ResponseField>
+
+<ResponseField name="company_logo" type="string">
+  Company logo URL — Indeed, Naukri
+</ResponseField>
+
+<ResponseField name="company_url_direct" type="string">
+  Company's own website URL — LinkedIn, Indeed
+</ResponseField>
+
+<ResponseField name="company_addresses" type="string">
+  Company address(es) — Indeed
+</ResponseField>
+
+<ResponseField name="company_num_employees" type="string">
+  Employee count range — Indeed
+</ResponseField>
+
+<ResponseField name="company_revenue" type="string">
+  Revenue range — Indeed
+</ResponseField>
+
+<ResponseField name="company_description" type="string">
+  Company description text — Indeed
+</ResponseField>
+
+<ResponseField name="skills" type="string">
+  Comma-separated skill tags — Naukri
+</ResponseField>
+
+<ResponseField name="experience_range" type="string">
+  Required experience (e.g. `"3-5 years"`) — Naukri
+</ResponseField>
+
+<ResponseField name="company_rating" type="number">
+  Company rating (e.g. `4.2`) — Naukri
+</ResponseField>
+
+<ResponseField name="company_reviews_count" type="number">
+  Number of company reviews — Naukri
+</ResponseField>
+
+<ResponseField name="vacancy_count" type="number">
+  Number of open positions — Naukri
+</ResponseField>
+
+<ResponseField name="work_from_home_type" type="string">
+  `"Remote"`, `"Hybrid"`, or `"Work from office"` — Naukri
+</ResponseField>
+
+## Examples
+
+### Basic Search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 20,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company} — ${job.job_url}`);
+}
+```
+
+### Remote Jobs with Salary Filter
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "frontend developer",
+  is_remote: true,
+  enforce_annual_salary: true,
+});
+
+const wellPaid = result.jobs.filter(
+  (j) => j.min_amount && j.min_amount >= 100000
+);
+console.log(`${wellPaid.length} remote jobs paying $100k+`);
+```
+
+### With Credentials
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,
+  linkedin_username: process.env.LINKEDIN_USERNAME,
+  linkedin_password: process.env.LINKEDIN_PASSWORD,
+});
+```
+
+### With Profile Deduplication
+
+```typescript
+// First run — returns all 50 jobs, saves state
+const run1 = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "react developer",
+  location: "New York, NY",
+  results_wanted: 50,
+  profile: "frontend",
+});
+console.log(`Found ${run1.newCount} new jobs`);
+
+// Second run (hours later) — returns only new postings
+const run2 = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "react developer",
+  location: "New York, NY",
+  results_wanted: 50,
+  profile: "frontend",
+});
+console.log(`Found ${run2.newCount} new jobs (${run2.totalScraped - run2.newCount} duplicates filtered)`);
+```
+
+### International Search
+
+```typescript
+// Search Indeed and Glassdoor in Germany
+const result = await scrapeJobs({
+  site_name: ["indeed", "glassdoor"],
+  search_term: "Softwareentwickler",
+  location: "Berlin",
+  country_indeed: "germany",
+});
+```
+
+### LinkedIn Company Filter
+
+```typescript
+// Only jobs from specific LinkedIn company IDs
+const result = await scrapeJobs({
+  site_name: "linkedin",
+  search_term: "product manager",
+  linkedin_company_ids: [1441, 1035], // Google, Microsoft
+  linkedin_fetch_description: true,
+});
+```
+
+### Recent Jobs Only
+
+```typescript
+// Jobs posted in the last 24 hours
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "machine learning engineer",
+  hours_old: 24,
+  description_format: "plain",
+});
+```
+
+## Error Handling
+
+`scrapeJobs()` uses `Promise.allSettled` internally, so individual scraper failures don't crash the entire call. Failed scrapers are silently skipped — you'll receive results from whichever sites succeeded.
+
+```typescript
+try {
+  const result = await scrapeJobs({
+    site_name: ["linkedin", "indeed", "glassdoor"],
+    search_term: "developer",
+  });
+
+  if (result.jobs.length === 0) {
+    console.log("No jobs found — try broadening your search");
+  }
+} catch (err) {
+  // Only throws if all scrapers fail or params are invalid
+  console.error("Scrape failed:", err);
+}
+```
+
+Set `verbose: 2` to see detailed logs from each scraper:
+
+```typescript
+const result = await scrapeJobs({
+  search_term: "developer",
+  verbose: 2,
+});
+```
+
+## Related
+
+- [fetchLinkedInJob()](/api/fetch-linkedin-job) - Fetch details for a single LinkedIn job
+- [fetchJobDetails()](/api/fetch-job-details) - Fetch details for any job by ID
+- [Types Reference](/api/types/scrape-jobs-params) - Full type definitions

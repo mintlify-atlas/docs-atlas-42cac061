@@ -1,0 +1,533 @@
+---
+title: CLI Commands
+description: Complete reference for all JobSpy CLI flags and options
+---
+
+The `jobspy` command provides a comprehensive set of flags for scraping, filtering, and exporting job postings.
+
+## Command Structure
+
+```bash
+jobspy [flags]
+```
+
+All flags are optional. Without arguments, the CLI will error — you must specify at least `-s/--site` or use `--profile`, `--init`, `--list-profiles`, `--describe`, or `--id`.
+
+## Core Search Flags
+
+### `-s, --site <sites...>`
+
+Job boards to scrape. Accepts one or more site keys separated by spaces.
+
+**Valid keys:** `linkedin`, `indeed`, `glassdoor`, `google`, `google_careers`, `zip_recruiter`, `bayt`, `naukri`, `bdjobs`
+
+**Default:** All sites (when omitted)
+
+<CodeGroup>
+
+```bash Single site
+jobspy -s linkedin -q "react developer"
+```
+
+```bash Multiple sites
+jobspy -s linkedin indeed glassdoor -q "python engineer" -n 30
+```
+
+```bash All sites (explicit)
+jobspy -s linkedin indeed glassdoor google zip_recruiter bayt naukri bdjobs -q "devops"
+```
+
+</CodeGroup>
+
+### `-q, --search-term <term>`
+
+Job search query. Used for all sites except Google Jobs (which uses `--google-search-term` by default).
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "senior frontend engineer react"
+```
+
+### `--google-search-term <term>`
+
+Override search term specifically for Google Jobs. Useful for custom queries like `"jobs near [location]"`.
+
+**Example:**
+
+```bash
+jobspy -s google --google-search-term "software engineer jobs near San Francisco CA"
+```
+
+### `-l, --location <location>`
+
+Geographic location for the job search. Format varies by site but generally accepts city/state or city/country.
+
+**Examples:**
+
+```bash
+jobspy -s indeed -q "nurse" -l "Houston, TX"
+jobspy -s linkedin -q "data scientist" -l "London, UK"
+jobspy -s bayt -q "accountant" -l "Dubai, UAE"
+```
+
+### `-d, --distance <miles>`
+
+Search radius in miles from the specified location.
+
+**Default:** `50`
+
+**Example:**
+
+```bash
+jobspy -s indeed -q "mechanic" -l "Detroit, MI" -d 25
+```
+
+### `-n, --results <count>`
+
+Number of job results to fetch **per site**. Alias: `--limit`
+
+**Default:** `15`
+
+**Example:**
+
+```bash
+jobspy -s linkedin indeed -q "java developer" -n 50
+# Fetches up to 50 jobs from LinkedIn + 50 from Indeed = 100 total
+```
+
+### `--offset <offset>`
+
+Pagination offset. Start scraping from the Nth result. Useful for batch scraping.
+
+**Default:** `0`
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" -n 50 --offset 0   # First batch
+jobspy -s linkedin -q "engineer" -n 50 --offset 50  # Second batch
+jobspy -s linkedin -q "engineer" -n 50 --offset 100 # Third batch
+```
+
+## Filter Flags
+
+### `-r, --remote`
+
+Filter for remote jobs only.
+
+**Default:** `false` (includes all locations)
+
+**Example:**
+
+```bash
+jobspy -s linkedin indeed -q "backend engineer" -r
+```
+
+### `-t, --job-type <type>`
+
+Filter by employment type.
+
+**Valid values:** `fulltime`, `parttime`, `contract`, `internship`
+
+**Example:**
+
+```bash
+jobspy -s glassdoor -q "marketing manager" -t fulltime
+jobspy -s indeed -q "summer intern" -t internship
+```
+
+### `--easy-apply`
+
+Filter for jobs with "easy apply" or one-click application.
+
+**Default:** `false`
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "product manager" --easy-apply
+```
+
+### `--hours-old <hours>`
+
+Only include jobs posted within the last N hours.
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "react" --hours-old 24  # Last 24 hours only
+jobspy -s indeed -q "nurse" --hours-old 72    # Last 3 days
+```
+
+### `-c, --country <country>`
+
+Country code for Indeed and Glassdoor regional domains.
+
+**Default:** `usa`
+
+**Supported countries:** `usa`, `uk`, `canada`, `germany`, `france`, `spain`, `india`, `australia`, `brazil`, and [60+ more](/sdk/countries).
+
+**Example:**
+
+```bash
+jobspy -s indeed -q "software developer" -c canada -l "Toronto"
+jobspy -s glassdoor -q "data analyst" -c uk -l "London"
+```
+
+### `--linkedin-company-ids <ids...>`
+
+Filter LinkedIn results to specific companies by their LinkedIn company IDs.
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" --linkedin-company-ids 1441 162479
+# 1441 = Google, 162479 = Microsoft
+```
+
+## Output Flags
+
+### `-o, --output <file>`
+
+Output file path. Format is automatically detected from extension:
+
+- `.json` → JSON array
+- `.csv` → CSV with headers
+
+**Default:** Print formatted table to stdout
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" -o results.json
+jobspy -s indeed glassdoor -q "analyst" -o jobs.csv
+```
+
+### `--format <format>`
+
+Format for job descriptions in the output.
+
+**Valid values:** `markdown`, `html`, `plain`
+
+**Default:** `markdown`
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "writer" --format html -o jobs.json
+jobspy -s indeed -q "developer" --format plain -o results.csv
+```
+
+### `--enforce-annual-salary`
+
+Convert all salary values to annual equivalents. Hourly and monthly salaries are normalized.
+
+**Default:** `false`
+
+**Example:**
+
+```bash
+jobspy -s indeed -q "contractor" --enforce-annual-salary -o salaries.csv
+```
+
+## Description Fetching
+
+### `--linkedin-fetch-description`
+
+Fetch full job descriptions for LinkedIn postings. By default, only job previews are scraped. This flag makes an additional request per job to get the complete description.
+
+**Default:** `false`
+
+**Trade-off:** Slower but more complete data.
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "product designer" --linkedin-fetch-description -n 10
+```
+
+### `--indeed-fetch-description`
+
+Fetch full job pages for Indeed postings to extract descriptions from the detail view.
+
+**Default:** `false`
+
+**Example:**
+
+```bash
+jobspy -s indeed -q "nurse" --indeed-fetch-description -n 20
+```
+
+## Single Job Fetching
+
+### `--describe <jobId>`
+
+Fetch full details for a single LinkedIn job by ID or URL. Does not perform a search.
+
+**Example:**
+
+<CodeGroup>
+
+```bash By job ID
+jobspy --describe 4127292817
+```
+
+```bash By full URL
+jobspy --describe https://www.linkedin.com/jobs/view/4127292817
+```
+
+</CodeGroup>
+
+Returns JSON with full job details:
+
+```json
+{
+  "job_url": "https://www.linkedin.com/jobs/view/4127292817",
+  "title": "Senior Software Engineer",
+  "company": "Acme Corp",
+  "location": "San Francisco, CA",
+  "description": "# About the Role\n\nWe are seeking...",
+  "job_type": ["fulltime"],
+  "job_level": "mid-senior level",
+  "company_industry": "Software Development",
+  "job_url_direct": "https://apply.acme.com/apply"
+}
+```
+
+### `--id <jobId>` (requires `-s/--site`)
+
+Fetch full job details by ID for **any** supported site.
+
+**Example:**
+
+<CodeGroup>
+
+```bash Indeed job
+jobspy -s indeed --id fdde406379455a1e
+```
+
+```bash Glassdoor job
+jobspy -s glassdoor --id 123456789
+```
+
+```bash ZipRecruiter job
+jobspy -s zip_recruiter --id some-listing-key
+```
+
+</CodeGroup>
+
+## Proxy Configuration
+
+### `-p, --proxies <proxies...>`
+
+One or more proxy servers. Format: `user:pass@host:port` or `http://user:pass@host:port`
+
+Proxies are rotated across requests for rate limit mitigation.
+
+**Example:**
+
+<CodeGroup>
+
+```bash Single proxy
+jobspy -s google -q "engineer" -p "user:pass@proxy.example.com:8080"
+```
+
+```bash Multiple proxies (rotation)
+jobspy -s linkedin indeed -q "dev" \
+  -p "user:pass@proxy1.com:8080" "user:pass@proxy2.com:8080"
+```
+
+</CodeGroup>
+
+## Authentication / Credentials
+
+### `--creds`
+
+Enable credential fallback. When anonymous scraping is blocked (e.g., LinkedIn 429 rate limit), the scraper will attempt authenticated scraping using stored credentials.
+
+**Default:** `false`
+
+**Equivalent:** `JOBSPY_CREDS=1` environment variable
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" --creds
+```
+
+Credentials are loaded from:
+
+1. CLI flags (`--linkedin-username`, `--linkedin-password`, etc.)
+2. Profile config (`jobspy.json`)
+3. Environment variables (`LINKEDIN_USERNAME`, `LINKEDIN_PASSWORD`, etc.)
+
+### Per-Provider Credential Flags
+
+| Flag | Environment Variable | Description |
+|------|---------------------|-------------|
+| `--linkedin-username` | `LINKEDIN_USERNAME` | LinkedIn email/username |
+| `--linkedin-password` | `LINKEDIN_PASSWORD` | LinkedIn password |
+| `--indeed-username` | `INDEED_USERNAME` | Indeed email/username |
+| `--indeed-password` | `INDEED_PASSWORD` | Indeed password |
+| `--glassdoor-username` | `GLASSDOOR_USERNAME` | Glassdoor email/username |
+| `--glassdoor-password` | `GLASSDOOR_PASSWORD` | Glassdoor password |
+| `--ziprecruiter-username` | `ZIPRECRUITER_USERNAME` | ZipRecruiter email/username |
+| `--ziprecruiter-password` | `ZIPRECRUITER_PASSWORD` | ZipRecruiter password |
+| `--bayt-username` | `BAYT_USERNAME` | Bayt email/username |
+| `--bayt-password` | `BAYT_PASSWORD` | Bayt password |
+| `--naukri-username` | `NAUKRI_USERNAME` | Naukri email/username |
+| `--naukri-password` | `NAUKRI_PASSWORD` | Naukri password |
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" --creds \
+  --linkedin-username me@email.com \
+  --linkedin-password "mypassword"
+```
+
+**Security note:** Prefer environment variables over CLI flags to avoid exposing credentials in shell history.
+
+```bash
+export LINKEDIN_USERNAME="me@email.com"
+export LINKEDIN_PASSWORD="mypassword"
+jobspy -s linkedin -q "engineer" --creds
+```
+
+## Config Profile Flags
+
+### `--profile <name>`
+
+Run a named profile from `jobspy.json`. See [Config Profiles](/cli/config-profiles) for details.
+
+**Example:**
+
+```bash
+jobspy --profile frontend
+jobspy --profile backend -n 10  # Override results count
+```
+
+### `--init`
+
+Generate a `jobspy.json` config file with two sample profiles (`frontend` and `backend`).
+
+**Example:**
+
+```bash
+jobspy --init
+# Created /path/to/jobspy.json
+```
+
+### `--list-profiles`
+
+List all profiles in `jobspy.json` with their last run time and settings.
+
+**Example:**
+
+```bash
+jobspy --list-profiles
+```
+
+**Output:**
+
+```text
+Profiles in /home/user/project/jobspy.json:
+  frontend             last run: 3/5/2026, 9:15:00 AM  sites: linkedin, indeed  term: react frontend developer
+  backend              last run: 3/4/2026, 2:30:00 PM  sites: linkedin, indeed  term: node.js backend engineer
+  devops               last run: never  sites: linkedin  term: devops engineer
+```
+
+### `--all`
+
+Skip deduplication filtering for this run. All jobs are returned, but state is still updated for future runs.
+
+**Use case:** Re-fetch all jobs without losing dedup history.
+
+**Example:**
+
+```bash
+jobspy --profile frontend --all
+```
+
+## Logging and Verbosity
+
+### `-v, --verbose <level>`
+
+Control log output verbosity.
+
+- `0` — Errors only (default)
+- `1` — Warnings + errors
+- `2` — All logs (info, debug, warnings, errors)
+
+**Example:**
+
+```bash
+jobspy -s linkedin -q "engineer" -v 2
+```
+
+## Advanced Examples
+
+### Batch Scraping with Pagination
+
+```bash
+for i in {0..200..50}; do
+  jobspy -s linkedin -q "data scientist" --offset $i -n 50 -o "batch-$i.json"
+  sleep 5
+done
+```
+
+### Multi-Site with Filters
+
+```bash
+jobspy -s linkedin indeed glassdoor \
+  -q "senior backend engineer" \
+  -l "San Francisco, CA" \
+  -d 30 \
+  -r \
+  -t fulltime \
+  --hours-old 48 \
+  --enforce-annual-salary \
+  -n 100 \
+  -o sf-backend-jobs.csv
+```
+
+### Credential Fallback with Environment Variables
+
+```bash
+export JOBSPY_CREDS=1
+export LINKEDIN_USERNAME="me@email.com"
+export LINKEDIN_PASSWORD="secret"
+export INDEED_USERNAME="me@email.com"
+export INDEED_PASSWORD="secret"
+
+jobspy -s linkedin indeed -q "react developer" -n 50 -o jobs.json
+```
+
+### Google Jobs with Proxy
+
+```bash
+jobspy -s google \
+  --google-search-term "software engineer jobs near New York NY" \
+  -n 20 \
+  -p "user:pass@residential-proxy.com:8080" \
+  -o google-jobs.json
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|--------|
+| `0` | Success |
+| `1` | Error (scraping failed, invalid arguments, etc.) |
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Config Profiles" icon="file-code" href="/cli/config-profiles">
+    Define reusable search profiles with jobspy.json
+  </Card>
+  <Card title="Deduplication" icon="filter" href="/cli/deduplication">
+    Track and filter previously seen jobs
+  </Card>
+</CardGroup>

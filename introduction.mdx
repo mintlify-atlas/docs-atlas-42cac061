@@ -1,0 +1,109 @@
+---
+title: "Introduction"
+description: "TypeScript job scraper for LinkedIn, Indeed, Glassdoor, Google, ZipRecruiter, Bayt, Naukri & BDJobs"
+---
+
+<div style={{
+  background: 'linear-gradient(135deg, #d88982 0%, #889aa4 50%, #31654c 100%)',
+  padding: '60px 40px',
+  borderRadius: '12px',
+  marginBottom: '40px',
+  textAlign: 'center'
+}}>
+  <h1 style={{ color: '#ffffff', fontSize: '48px', fontWeight: '700', marginBottom: '16px' }}>
+    JobSpy JS
+  </h1>
+  <p style={{ color: '#ffffff', fontSize: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    Scrape job postings from 9 major job boards with a single TypeScript library. Available as SDK, CLI, and MCP server.
+  </p>
+</div>
+
+## What is JobSpy JS?
+
+JobSpy JS is a powerful TypeScript library that scrapes job postings from multiple job boards simultaneously. It provides three interfaces—SDK, CLI, and MCP server—to fit any workflow.
+
+<CardGroup cols={2}>
+  <Card title="9 Job Boards" icon="briefcase">
+    Scrape LinkedIn, Indeed, Glassdoor, Google Jobs, Google Careers, ZipRecruiter, Bayt, Naukri, and BDJobs
+  </Card>
+  <Card title="Browser Emulation" icon="browser">
+    Full TLS fingerprinting with wreq-js for Chrome, Firefox, and Safari
+  </Card>
+  <Card title="Credential Fallback" icon="lock">
+    Optional authenticated scraping when anonymous access is blocked
+  </Card>
+  <Card title="Dedup Tracking" icon="filter">
+    Profile-based deduplication across runs to avoid duplicate results
+  </Card>
+  <Card title="60+ Countries" icon="globe">
+    Regional domain support for Indeed and Glassdoor worldwide
+  </Card>
+  <Card title="Proxy Rotation" icon="shield">
+    Built-in rotating proxy support for scaled scraping
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+Get started with JobSpy JS in three ways:
+
+<CardGroup cols={3}>
+  <Card title="SDK" icon="code" href="/sdk/scraping-jobs">
+    Import the library and scrape programmatically
+  </Card>
+  <Card title="CLI" icon="terminal" href="/cli/overview">
+    Use the command-line interface for quick searches
+  </Card>
+  <Card title="MCP Server" icon="server" href="/mcp/setup">
+    Connect to AI agents via Model Context Protocol
+  </Card>
+</CardGroup>
+
+## Key Features
+
+<Accordion title="Multi-Site Scraping">
+  Scrape all 9 job boards concurrently with a single function call. JobSpy JS handles rate limiting, parsing, and normalization automatically.
+</Accordion>
+
+<Accordion title="Automatic Salary Extraction">
+  When job boards don't provide structured salary data, JobSpy JS parses compensation from job descriptions and normalizes it to a consistent format.
+</Accordion>
+
+<Accordion title="Profile-Based Deduplication">
+  Define named search profiles in `jobspy.json` and track which jobs you've already seen. On subsequent runs, only new jobs are returned.
+</Accordion>
+
+<Accordion title="Credential Management">
+  Optionally provide credentials for each job board. JobSpy JS uses them as a fallback when anonymous scraping is blocked by rate limits or auth walls.
+</Accordion>
+
+## Supported Job Boards
+
+| Job Board | Key | Method |
+|-----------|-----|--------|
+| LinkedIn | `linkedin` | HTML scraping |
+| Indeed | `indeed` | GraphQL API |
+| Glassdoor | `glassdoor` | GraphQL API |
+| Google Jobs | `google` | Playwright (headless Chrome) |
+| Google Careers | `google_careers` | JSON parsing |
+| ZipRecruiter | `zip_recruiter` | Web scraping |
+| Bayt | `bayt` | HTML scraping |
+| Naukri | `naukri` | REST API |
+| BDJobs | `bdjobs` | REST API |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install JobSpy JS via npm, yarn, or pnpm
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Scrape your first job postings in 2 minutes
+  </Card>
+  <Card title="SDK Guide" icon="book" href="/sdk/scraping-jobs">
+    Learn the SDK API and advanced features
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/scrape-jobs">
+    Explore the full type-safe API
+  </Card>
+</CardGroup>

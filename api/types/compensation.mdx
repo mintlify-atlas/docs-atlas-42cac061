@@ -1,0 +1,318 @@
+---
+title: Compensation
+description: Salary and wage information for job postings
+---
+
+## Overview
+
+The `Compensation` interface represents salary or wage information for a job posting. It includes the pay range, payment interval, and currency.
+
+## Interface Definition
+
+```typescript
+export interface Compensation {
+  interval?: CompensationInterval;
+  min_amount?: number;
+  max_amount?: number;
+  currency?: string;
+}
+```
+
+## Fields
+
+<ResponseField name="interval" type="CompensationInterval" optional>
+  Pay period frequency. See [CompensationInterval enum](/api/enums/compensation-interval). Values:
+  - `CompensationInterval.YEARLY` - Annual salary
+  - `CompensationInterval.MONTHLY` - Monthly pay
+  - `CompensationInterval.WEEKLY` - Weekly wages
+  - `CompensationInterval.DAILY` - Daily rate
+  - `CompensationInterval.HOURLY` - Hourly rate
+</ResponseField>
+
+<ResponseField name="min_amount" type="number" optional>
+  Minimum compensation amount in the specified currency
+</ResponseField>
+
+<ResponseField name="max_amount" type="number" optional>
+  Maximum compensation amount in the specified currency
+</ResponseField>
+
+<ResponseField name="currency" type="string" optional>
+  Currency code (e.g., `"USD"`, `"EUR"`, `"GBP"`, `"INR"`)
+</ResponseField>
+
+## Example Usage
+
+### Basic Access
+
+```typescript
+import { scrapeJobs, JobPost, CompensationInterval } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'software engineer',
+  location: 'San Francisco, CA',
+  results_wanted: 50
+});
+
+response.jobs.forEach((job: JobPost) => {
+  if (job.compensation) {
+    const { min_amount, max_amount, interval, currency } = job.compensation;
+    console.log(`${job.title} at ${job.company_name}`);
+    console.log(
+      `Salary: ${currency} ${min_amount}-${max_amount} ${interval}`
+    );
+  }
+});
+```
+
+### Filtering by Salary
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed'],
+  search_term: 'data scientist',
+  results_wanted: 100
+});
+
+// Filter for high-paying jobs (>$150k annual)
+const highPayingJobs = response.jobs.filter((job) => {
+  if (!job.compensation) return false;
+  
+  const isYearly =
+    job.compensation.interval === CompensationInterval.YEARLY;
+  const minSalary = job.compensation.min_amount || 0;
+  
+  return isYearly && minSalary > 150000;
+});
+
+console.log(`Found ${highPayingJobs.length} jobs paying >$150k`);
+
+// Filter for jobs with salary information
+const jobsWithSalary = response.jobs.filter(
+  (job) => job.compensation?.min_amount !== undefined
+);
+
+console.log(
+  `${jobsWithSalary.length} of ${response.jobs.length} jobs have salary data`
+);
+```
+
+### Salary Statistics
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'product manager',
+  results_wanted: 100
+});
+
+// Calculate average salary (yearly only)
+const yearlySalaries = response.jobs
+  .filter(
+    (job) =>
+      job.compensation?.interval === CompensationInterval.YEARLY &&
+      job.compensation?.min_amount
+  )
+  .map((job) => job.compensation!.min_amount!);
+
+if (yearlySalaries.length > 0) {
+  const avgSalary =
+    yearlySalaries.reduce((sum, sal) => sum + sal, 0) /
+    yearlySalaries.length;
+  const minSalary = Math.min(...yearlySalaries);
+  const maxSalary = Math.max(...yearlySalaries);
+  
+  console.log(`Salary Statistics:`);
+  console.log(`  Average: $${avgSalary.toFixed(0)}`);
+  console.log(`  Range: $${minSalary} - $${maxSalary}`);
+}
+```
+
+### Normalizing to Annual Salary
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+function toAnnualSalary(
+  amount: number,
+  interval: CompensationInterval
+): number {
+  const multipliers = {
+    [CompensationInterval.HOURLY]: 2080, // 40 hrs/week * 52 weeks
+    [CompensationInterval.DAILY]: 260, // 5 days/week * 52 weeks
+    [CompensationInterval.WEEKLY]: 52,
+    [CompensationInterval.MONTHLY]: 12,
+    [CompensationInterval.YEARLY]: 1
+  };
+  
+  return amount * (multipliers[interval] || 1);
+}
+
+const response = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'developer',
+  results_wanted: 50
+});
+
+response.jobs.forEach((job) => {
+  if (job.compensation?.min_amount && job.compensation?.interval) {
+    const annualMin = toAnnualSalary(
+      job.compensation.min_amount,
+      job.compensation.interval
+    );
+    console.log(`${job.title}: ~$${annualMin.toFixed(0)}/year`);
+  }
+});
+
+// Or use the built-in parameter
+const responseWithAnnual = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'developer',
+  enforce_annual_salary: true // Automatically converts all to yearly
+});
+```
+
+### Grouping by Salary Range
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed'],
+  search_term: 'software engineer',
+  results_wanted: 100,
+  enforce_annual_salary: true
+});
+
+// Group by salary range
+const ranges = {
+  'Under $80k': 0,
+  '$80k-$100k': 0,
+  '$100k-$150k': 0,
+  '$150k-$200k': 0,
+  'Over $200k': 0
+};
+
+response.jobs.forEach((job) => {
+  const salary = job.compensation?.min_amount;
+  if (!salary) return;
+  
+  if (salary < 80000) ranges['Under $80k']++;
+  else if (salary < 100000) ranges['$80k-$100k']++;
+  else if (salary < 150000) ranges['$100k-$150k']++;
+  else if (salary < 200000) ranges['$150k-$200k']++;
+  else ranges['Over $200k']++;
+});
+
+console.log('Salary Distribution:');
+Object.entries(ranges).forEach(([range, count]) => {
+  console.log(`  ${range}: ${count} jobs`);
+});
+```
+
+### Comparing Compensation Across Sites
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+interface SiteStats {
+  siteName: string;
+  avgSalary: number;
+  jobsWithSalary: number;
+}
+
+const sites = ['linkedin', 'indeed', 'glassdoor'];
+const stats: SiteStats[] = [];
+
+for (const site of sites) {
+  const response = await scrapeJobs({
+    site_name: site,
+    search_term: 'machine learning engineer',
+    results_wanted: 50,
+    enforce_annual_salary: true
+  });
+  
+  const salaries = response.jobs
+    .filter((job) => job.compensation?.min_amount)
+    .map((job) => job.compensation!.min_amount!);
+  
+  if (salaries.length > 0) {
+    stats.push({
+      siteName: site,
+      avgSalary: salaries.reduce((a, b) => a + b, 0) / salaries.length,
+      jobsWithSalary: salaries.length
+    });
+  }
+}
+
+console.log('Salary by Site:');
+stats.forEach((s) => {
+  console.log(
+    `  ${s.siteName}: $${s.avgSalary.toFixed(0)} avg (${s.jobsWithSalary} jobs)`
+  );
+});
+```
+
+### Formatting Compensation
+
+```typescript
+import { Compensation, CompensationInterval } from 'jobspy-js';
+
+function formatCompensation(comp?: Compensation): string {
+  if (!comp) return 'Salary not specified';
+  
+  const currency = comp.currency || 'USD';
+  const intervalMap = {
+    [CompensationInterval.HOURLY]: '/hr',
+    [CompensationInterval.DAILY]: '/day',
+    [CompensationInterval.WEEKLY]: '/wk',
+    [CompensationInterval.MONTHLY]: '/mo',
+    [CompensationInterval.YEARLY]: '/yr'
+  };
+  const intervalSuffix = comp.interval
+    ? intervalMap[comp.interval]
+    : '';
+  
+  if (comp.min_amount && comp.max_amount) {
+    return `${currency} ${comp.min_amount.toLocaleString()}-${comp.max_amount.toLocaleString()}${intervalSuffix}`;
+  } else if (comp.min_amount) {
+    return `${currency} ${comp.min_amount.toLocaleString()}+${intervalSuffix}`;
+  } else if (comp.max_amount) {
+    return `Up to ${currency} ${comp.max_amount.toLocaleString()}${intervalSuffix}`;
+  }
+  
+  return 'Salary not specified';
+}
+
+// Usage
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'engineer'
+});
+
+response.jobs.forEach((job) => {
+  console.log(`${job.title}: ${formatCompensation(job.compensation)}`);
+});
+```
+
+## Notes
+
+- All fields are optional. Salary information availability varies significantly by job board and posting.
+- Many job postings don't include salary information (especially on LinkedIn).
+- The `currency` field typically uses ISO 4217 currency codes (USD, EUR, GBP, etc.).
+- Use `enforce_annual_salary: true` in `scrapeJobs()` to normalize all compensation to annual equivalents.
+- Salary ranges represent the employer's stated range, not necessarily negotiable bounds.
+- Some job boards display estimated salaries rather than employer-provided ranges.
+
+## Related Types
+
+- [JobPost](/api/types/job-post) - Contains compensation as a field
+- [CompensationInterval enum](/api/enums/compensation-interval) - Pay period frequency
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - `enforce_annual_salary` parameter

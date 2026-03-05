@@ -1,0 +1,314 @@
+---
+title: Glassdoor
+description: Scrape job postings from Glassdoor using the GraphQL API with company ratings and reviews
+---
+
+## Overview
+
+Glassdoor is a job search and company review platform known for salary transparency and employee reviews. JobSpy JS scrapes Glassdoor using its **GraphQL API**, providing access to job listings with rich company metadata.
+
+## Scraping Method
+
+**GraphQL API** at `https://{country-domain}/graph`
+
+- Queries the public Glassdoor GraphQL endpoint
+- Requires CSRF token extraction from page HTML
+- Supports cursor-based pagination
+- Returns job listings with estimated salary ranges, company ratings, and logos
+- Limited to 900 results per search (30 pages × 30 jobs/page)
+
+<Note>
+  Glassdoor requires a valid CSRF token for all API requests. JobSpy automatically extracts and manages this token.
+</Note>
+
+## Country Support
+
+Glassdoor supports multiple country domains. The `country_indeed` parameter is reused for Glassdoor since they share country configuration.
+
+### Supported countries
+
+| Country | Code | Domain |
+|---------|------|--------|
+| United States | `usa` | glassdoor.com |
+| United Kingdom | `uk` | glassdoor.co.uk |
+| Canada | `canada` | glassdoor.ca |
+| Germany | `germany` | glassdoor.de |
+| France | `france` | glassdoor.fr |
+| India | `india` | glassdoor.co.in |
+| Australia | `australia` | glassdoor.com.au |
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "software engineer",
+  location: "London",
+  country_indeed: "uk",  // Use Glassdoor UK
+});
+```
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "product manager",
+  location: "New York, NY",
+  results_wanted: 30,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  
+  // Glassdoor provides estimated salary ranges
+  if (job.compensation) {
+    console.log(`Salary: $${job.compensation.min_amount}-${job.compensation.max_amount}`);
+  }
+  
+  console.log(`Company: ${job.company_url}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Filter by job type and recency
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "data analyst",
+  location: "Chicago, IL",
+  job_type: "fulltime",
+  hours_old: 168,  // Posted in last 7 days
+  results_wanted: 40,
+});
+```
+
+### Remote jobs search
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "frontend developer",
+  is_remote: true,
+  results_wanted: 50,
+});
+```
+
+### Easy Apply jobs only
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "marketing manager",
+  location: "San Francisco, CA",
+  easy_apply: true,  // Glassdoor Easy Apply only
+  results_wanted: 25,
+});
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by Glassdoor listing ID
+const job = await fetchJobDetails("glassdoor", "123456789");
+
+console.log(job.title);
+console.log(job.description);  // Full job description
+console.log(job.company_logo);
+```
+
+### Jobs with salary information
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "software engineer",
+  location: "Seattle, WA",
+  results_wanted: 100,
+});
+
+// Filter jobs with salary data
+const jobsWithSalary = result.jobs.filter(job => 
+  job.compensation?.min_amount && job.compensation?.max_amount
+);
+
+console.log(`${jobsWithSalary.length} jobs have salary ranges`);
+
+for (const job of jobsWithSalary) {
+  const min = job.compensation!.min_amount;
+  const max = job.compensation!.max_amount;
+  const interval = job.compensation!.interval;
+  console.log(`${job.title}: $${min}-${max}/${interval}`);
+}
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City or state |
+| `is_remote` | ✅ | Remote-only filter |
+| `job_type` | ✅ | `fulltime`, `parttime`, `contract`, `internship` |
+| `hours_old` | ✅ | Filter by days old (converted from hours) |
+| `easy_apply` | ✅ | Glassdoor Easy Apply jobs only |
+| `country_indeed` | ✅ | Country domain (default: `usa`) |
+
+<Note>
+  Glassdoor's `distance` filter is not supported. Use broader location searches instead.
+</Note>
+
+## Returned Fields
+
+### Core fields
+- `id`, `title`, `company_name`, `company_url`, `location`, `date_posted`, `job_url`
+
+### Compensation
+- `compensation.interval` (annual, monthly, hourly)
+- `compensation.min_amount`, `compensation.max_amount` (10th-90th percentile estimates)
+- `compensation.currency`
+
+<Warning>
+  Glassdoor salary ranges are **estimates** based on community-reported data, not employer-stated salaries. They represent the 10th and 90th percentile of expected pay.
+</Warning>
+
+### Job metadata
+- `description` (full job description in markdown/HTML/plain)
+- `is_remote` (boolean)
+- `company_logo` (URL)
+- `listing_type` (e.g., "sponsored", "organic")
+- `emails` (extracted from description)
+
+## Rate Limits & Best Practices
+
+### CSRF token management
+
+Glassdoor requires a valid CSRF token for all API requests. JobSpy automatically:
+1. Fetches the homepage with browser headers
+2. Extracts the embedded CSRF token from HTML
+3. Includes the token in all subsequent requests
+
+If you encounter authentication errors, the token may have expired. JobSpy will automatically retry with a fresh token.
+
+### Pagination limits
+
+Glassdoor limits search results to **30 pages × 30 jobs = 900 jobs maximum**.
+
+```typescript
+// ✅ Good: Within limits
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "engineer",
+  results_wanted: 500,  // Will work
+});
+
+// ⚠️ Limited: Capped at 900
+const result2 = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "developer",
+  results_wanted: 1500,  // Will only return 900
+});
+```
+
+### Use proxies for reliability
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["glassdoor"],
+  search_term: "data scientist",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 100,
+});
+```
+
+### Location lookup
+
+Glassdoor requires location IDs. JobSpy automatically:
+1. Queries Glassdoor's location autocomplete API
+2. Maps your `location` string to a Glassdoor location ID and type (city/state/country)
+3. Uses the location ID in the search query
+
+If your location isn't found, you'll see an error:
+```
+Location 'XYZ' not found on Glassdoor
+```
+
+**Solution:** Use a broader or more common location name (e.g., "California" instead of "SoCal").
+
+## Troubleshooting
+
+### "location not parsed" error
+
+**Symptom:** Search returns 0 results with "location not parsed"
+
+**Cause:** Glassdoor couldn't find a matching location ID
+
+**Solutions:**
+1. Use a more common location name (e.g., "New York" instead of "NYC")
+2. Use state names instead of cities for broader searches
+3. Try `is_remote: true` to search without a location filter
+
+### CSRF token errors
+
+**Symptom:** API requests fail with 403 or authentication errors
+
+**Cause:** CSRF token is invalid or expired
+
+**Solutions:**
+1. JobSpy automatically retries with a fresh token
+2. If errors persist, use a proxy or different IP
+3. Wait a few minutes before retrying
+
+### Missing job descriptions
+
+**Symptom:** `description` field is empty for some jobs
+
+**Cause:** Glassdoor returns descriptions via a separate API call. JobSpy automatically fetches them, but some may fail.
+
+**Solution:** This is expected behavior. Most jobs will have descriptions, but a few may not due to API rate limits.
+
+### Salary data inconsistencies
+
+**Symptom:** Salary ranges seem too wide or inaccurate
+
+**Note:** Glassdoor salaries are community-reported estimates, not employer-stated figures. They represent the 10th-90th percentile range based on historical data.
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s glassdoor -q "software engineer" -l "San Francisco, CA" -n 30
+
+# Remote jobs only
+jobspy -s glassdoor -q "product manager" -r -n 40
+
+# Full-time jobs posted in last week
+jobspy -s glassdoor -q "data engineer" -t fulltime --hours-old 168 -n 50
+
+# Easy Apply jobs
+jobspy -s glassdoor -q "marketing" --easy-apply -n 25
+
+# Search in UK
+jobspy -s glassdoor -q "analyst" -l "London" -c uk -n 30
+
+# Fetch single job by ID
+jobspy -s glassdoor --id 123456789
+
+# Export to CSV with salary data
+jobspy -s glassdoor -q "engineer" -l "Seattle, WA" -n 100 -o jobs.csv
+```
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/glassdoor/index.ts`
+- Key: `glassdoor`
+- Site enum: `Site.GLASSDOOR`

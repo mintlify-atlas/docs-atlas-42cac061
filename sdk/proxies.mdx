@@ -1,0 +1,483 @@
+---
+title: "Proxies"
+description: "Proxy rotation and configuration for JobSpy JS"
+---
+
+## Overview
+
+JobSpy JS supports **rotating proxies** to distribute requests across multiple IP addresses. This is useful for:
+
+- Avoiding rate limits
+- Bypassing IP-based blocking
+- Accessing geo-restricted job boards
+- Scaling up scraping volume
+
+Proxies are optional but recommended for high-volume scraping or when dealing with strict rate limits.
+
+## Basic Usage
+
+### Single Proxy
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+### Multiple Proxies (Rotation)
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin", "glassdoor"],
+  search_term: "software engineer",
+  proxies: [
+    "user:pass@proxy1.example.com:8080",
+    "user:pass@proxy2.example.com:8080",
+    "user:pass@proxy3.example.com:8080",
+  ],
+});
+```
+
+Proxies rotate **round-robin** across concurrent scraper instances. If you're scraping 3 sites with 3 proxies:
+- Site 1 uses proxy 1
+- Site 2 uses proxy 2
+- Site 3 uses proxy 3
+
+## Proxy Formats
+
+JobSpy JS accepts proxies in multiple formats:
+
+| Format | Example |
+|--------|----------|
+| `host:port` | `proxy.example.com:8080` |
+| `user:pass@host:port` | `admin:secret@proxy.example.com:8080` |
+| `http://host:port` | `http://proxy.example.com:8080` |
+| `https://host:port` | `https://proxy.example.com:8080` |
+| `socks5://host:port` | `socks5://proxy.example.com:1080` |
+
+**Auto-prefixing:** Bare `host:port` strings are automatically prefixed with `http://`:
+
+```typescript
+// These are equivalent:
+proxies: "proxy.example.com:8080"
+proxies: "http://proxy.example.com:8080"
+```
+
+## Configuration
+
+### scrapeJobs()
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "developer",
+  proxies: [
+    "user:pass@proxy1.example.com:8080",
+    "user:pass@proxy2.example.com:8080",
+  ],
+});
+```
+
+<ParamField path="proxies" type="string | string[]">
+  Proxy server(s) for rotating requests. Can be a single proxy string or an array of proxies.
+  
+  ```typescript
+  // Single proxy
+  proxies: "user:pass@proxy.example.com:8080"
+  
+  // Multiple proxies
+  proxies: [
+    "proxy1.example.com:8080",
+    "proxy2.example.com:8080",
+  ]
+  ```
+</ParamField>
+
+### fetchJobDetails()
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("indeed", "fdde406379455a1e", {
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+### fetchLinkedInJob()
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob("4127292817", {
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+## Proxy Types
+
+### HTTP/HTTPS Proxies
+
+Most common proxy type. Works with all scrapers.
+
+```typescript
+proxies: "http://user:pass@proxy.example.com:8080"
+proxies: "https://user:pass@proxy.example.com:8080"
+```
+
+### SOCKS5 Proxies
+
+Supports TCP-level proxying. Works with all scrapers.
+
+```typescript
+proxies: "socks5://user:pass@proxy.example.com:1080"
+```
+
+### Authenticated Proxies
+
+Proxies with username/password authentication:
+
+```typescript
+proxies: "user:pass@proxy.example.com:8080"
+proxies: "http://user:pass@proxy.example.com:8080"
+```
+
+### Unauthenticated Proxies
+
+Proxies without authentication:
+
+```typescript
+proxies: "proxy.example.com:8080"
+proxies: "http://proxy.example.com:8080"
+```
+
+## How Rotation Works
+
+### Round-Robin Rotation
+
+Proxies rotate in order across concurrent scraper instances:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin", "glassdoor", "ziprecruiter"],
+  search_term: "engineer",
+  proxies: [
+    "proxy1.example.com:8080",  // Used by Indeed
+    "proxy2.example.com:8080",  // Used by LinkedIn
+    "proxy3.example.com:8080",  // Used by Glassdoor
+  ],
+});
+
+// ZipRecruiter wraps around to proxy1
+```
+
+### Per-Scraper Assignment
+
+Each scraper instance gets a single proxy for all its requests. Proxies are assigned when the scraper is initialized.
+
+```typescript
+// Example with 2 sites and 3 proxies
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  proxies: ["proxy1", "proxy2", "proxy3"],
+});
+
+// Indeed scraper: uses proxy1 for all requests
+// LinkedIn scraper: uses proxy2 for all requests
+// proxy3 is unused in this run
+```
+
+## Examples
+
+### Basic Proxy Rotation
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed", "glassdoor"],
+  search_term: "data scientist",
+  location: "San Francisco, CA",
+  proxies: [
+    "user1:pass1@us-proxy1.example.com:8080",
+    "user2:pass2@us-proxy2.example.com:8080",
+    "user3:pass3@us-proxy3.example.com:8080",
+  ],
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+```
+
+### SOCKS5 Proxy
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  proxies: "socks5://user:pass@proxy.example.com:1080",
+});
+```
+
+### Fetching Job Details via Proxy
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("indeed", "fdde406379455a1e", {
+  proxies: "user:pass@proxy.example.com:8080",
+  format: "markdown",
+});
+
+console.log(job?.description);
+```
+
+### LinkedIn Job via Proxy
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob("4127292817", {
+  proxies: "user:pass@proxy.example.com:8080",
+  format: "plain",
+});
+
+console.log(job.description);
+```
+
+### Loading Proxies from Environment
+
+```typescript
+// Set JOBSPY_PROXIES="proxy1:8080,proxy2:8080,proxy3:8080"
+const proxies = process.env.JOBSPY_PROXIES?.split(",") || [];
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "developer",
+  proxies: proxies.length > 0 ? proxies : undefined,
+});
+```
+
+### Combining Proxies with Authentication
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  proxies: "user:pass@proxy.example.com:8080",
+  use_creds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+  },
+});
+```
+
+## CLI Usage
+
+### Single Proxy
+
+```bash
+jobspy -s linkedin -q "engineer" -p "user:pass@proxy.example.com:8080"
+```
+
+### Multiple Proxies
+
+```bash
+jobspy -s linkedin indeed -q "engineer" \
+  -p "proxy1.example.com:8080" \
+  -p "proxy2.example.com:8080" \
+  -p "proxy3.example.com:8080"
+```
+
+### With Authentication
+
+```bash
+jobspy -s linkedin -q "engineer" \
+  -p "user:pass@proxy.example.com:8080" \
+  --creds \
+  --linkedin-username "me@email.com" \
+  --linkedin-password "secret"
+```
+
+## Proxy Providers
+
+JobSpy JS works with any standard HTTP/HTTPS/SOCKS5 proxy service. Popular providers include:
+
+- **Residential proxies:** Better for avoiding detection (Bright Data, Oxylabs, Smartproxy)
+- **Datacenter proxies:** Faster and cheaper (Webshare, Proxy-Cheap)
+- **Rotating proxies:** Automatic IP rotation on each request (GeoNode, ProxyScrape)
+
+<Tip>
+  Residential proxies from the same country as your target jobs are less likely to trigger rate limits or blocks.
+</Tip>
+
+## Troubleshooting
+
+### Proxy Connection Failures
+
+**Symptoms:** `ECONNREFUSED`, `ETIMEDOUT`, or `ENOTFOUND` errors
+
+**Solutions:**
+1. Verify proxy is online and reachable
+2. Check proxy credentials are correct
+3. Ensure firewall allows outbound connections to proxy
+4. Try a different proxy from your provider
+
+```typescript
+// Test proxy connectivity
+try {
+  const result = await scrapeJobs({
+    site_name: ["indeed"],
+    search_term: "test",
+    results_wanted: 1,
+    proxies: "user:pass@proxy.example.com:8080",
+    verbose: 2,  // Enable debug logging
+  });
+  console.log("Proxy works!");
+} catch (err) {
+  console.error("Proxy failed:", err);
+}
+```
+
+### Proxy Authentication Errors
+
+**Symptoms:** `407 Proxy Authentication Required`
+
+**Solutions:**
+1. Verify username and password are correct
+2. Check for special characters in credentials (URL-encode if needed)
+3. Ensure proxy supports authentication
+
+```typescript
+// URL-encode credentials with special characters
+const username = encodeURIComponent("user@domain");
+const password = encodeURIComponent("p@ssw0rd!");
+const proxy = `${username}:${password}@proxy.example.com:8080`;
+
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "test",
+  proxies: proxy,
+});
+```
+
+### Slow Performance
+
+**Symptoms:** Scraping takes much longer than expected
+
+**Solutions:**
+1. Use datacenter proxies instead of residential (faster but less reliable)
+2. Use proxies geographically close to target job boards
+3. Reduce `results_wanted` to minimize requests
+4. Check proxy provider's speed benchmarks
+
+### Rate Limiting Even with Proxies
+
+**Symptoms:** Still getting 429 errors or empty results
+
+**Solutions:**
+1. Use residential proxies (harder to detect)
+2. Add delays between requests
+3. Rotate more proxies
+4. Enable credential fallback with `use_creds: true`
+5. Reduce scraping volume
+
+## Best Practices
+
+### 1. Use Enough Proxies
+
+Match the number of proxies to the number of sites:
+
+```typescript
+// Good: 3 sites, 3+ proxies
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin", "glassdoor"],
+  proxies: ["proxy1", "proxy2", "proxy3"],
+});
+
+// Suboptimal: 3 sites, 1 proxy
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin", "glassdoor"],
+  proxies: "proxy1",  // All sites share one IP
+});
+```
+
+### 2. Use Residential Proxies for Sensitive Sites
+
+LinkedIn and Glassdoor are more aggressive about blocking datacenter IPs:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin", "glassdoor"],
+  proxies: [
+    "residential-proxy1.example.com:8080",
+    "residential-proxy2.example.com:8080",
+  ],
+});
+```
+
+### 3. Store Proxies Securely
+
+Never hardcode proxy credentials:
+
+```typescript
+// ❌ Bad
+proxies: "user:pass@proxy.example.com:8080"
+
+// ✅ Good
+proxies: process.env.PROXY_URL
+```
+
+### 4. Monitor Proxy Health
+
+Track which proxies work and which fail:
+
+```typescript
+const proxies = [
+  "proxy1.example.com:8080",
+  "proxy2.example.com:8080",
+  "proxy3.example.com:8080",
+];
+
+for (const proxy of proxies) {
+  try {
+    const result = await scrapeJobs({
+      site_name: ["indeed"],
+      search_term: "test",
+      results_wanted: 1,
+      proxies: proxy,
+    });
+    console.log(`✓ ${proxy} works`);
+  } catch (err) {
+    console.log(`✗ ${proxy} failed:`, err.message);
+  }
+}
+```
+
+### 5. Rotate Proxies Periodically
+
+Don't reuse the same proxy for extended periods:
+
+```typescript
+// Refresh proxy list every hour
+let proxies = await fetchFreshProxies();
+
+setInterval(async () => {
+  proxies = await fetchFreshProxies();
+}, 60 * 60 * 1000);
+```
+
+## See Also
+
+- [Authentication](/sdk/authentication) — Combine proxies with credentials
+- [Scraping Jobs](/sdk/scraping-jobs) — Main scraping function
+- [Countries](/sdk/countries) — Scraping jobs in different countries

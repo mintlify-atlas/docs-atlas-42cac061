@@ -1,0 +1,459 @@
+---
+title: "Fetching Job Details"
+description: "Fetch full details for a single job posting by ID"
+---
+
+## Overview
+
+JobSpy JS provides two functions for fetching detailed information about a single job posting:
+
+- **`fetchJobDetails()`** — Universal function that works with all supported sites
+- **`fetchLinkedInJob()`** — LinkedIn-specific function with enhanced metadata
+
+Use these functions when you have a job ID (from search results or a URL) and need the complete job description and metadata.
+
+## fetchJobDetails()
+
+Fetch full details for a single job by ID on **any** supported provider.
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("indeed", "fdde406379455a1e");
+console.log(job?.title);        // job title
+console.log(job?.company);      // company name
+console.log(job?.description);  // full description
+```
+
+### Function Signature
+
+```typescript
+async function fetchJobDetails(
+  site: string,
+  jobId: string,
+  options?: {
+    format?: string;
+    proxies?: string | string[];
+    country?: string;
+    credentials?: ProviderCredentials;
+    useCreds?: boolean;
+  }
+): Promise<FlatJobRecord | null>
+```
+
+### Parameters
+
+<ParamField path="site" type="string" required>
+  Site name. Must be one of the supported sites.
+  
+  **Valid values:** `indeed`, `linkedin`, `glassdoor`, `zip_recruiter`, `bayt`, `naukri`, `bdjobs`
+  
+  ```typescript
+  site: "indeed"
+  site: "linkedin"
+  site: "glassdoor"
+  ```
+  
+  <Warning>
+    `google` and `google_careers` do not support single job fetching.
+  </Warning>
+</ParamField>
+
+<ParamField path="jobId" type="string" required>
+  Provider-specific job ID. The ID format varies by site:
+  
+  | Site | ID Format | Example |
+  |------|-----------|----------|
+  | Indeed | Job key | `"fdde406379455a1e"` |
+  | LinkedIn | Numeric job ID | `"4127292817"` |
+  | Glassdoor | Listing ID | `"123456789"` |
+  | ZipRecruiter | Listing key | `"some-listing-key"` |
+  | Bayt | Job path | `"/en/job-title-1234567"` |
+  | Naukri | Numeric ID | `"123456789"` |
+  | BDJobs | Numeric ID | `"123456"` |
+  
+  ```typescript
+  jobId: "fdde406379455a1e"  // Indeed
+  jobId: "4127292817"        // LinkedIn
+  ```
+</ParamField>
+
+<ParamField path="options.format" type="string" default="markdown">
+  Description format. Same as `description_format` in `scrapeJobs()`.
+  
+  **Options:** `markdown`, `html`, `plain`
+  
+  ```typescript
+  format: "markdown"  // Convert HTML to Markdown
+  format: "html"      // Keep original HTML
+  format: "plain"     // Strip all markup
+  ```
+</ParamField>
+
+<ParamField path="options.proxies" type="string | string[]">
+  Proxy server(s) for the request. See [Proxies](/sdk/proxies) for details.
+  
+  ```typescript
+  proxies: "user:pass@proxy.example.com:8080"
+  proxies: ["proxy1.com:8080", "proxy2.com:8080"]
+  ```
+</ParamField>
+
+<ParamField path="options.country" type="string" default="usa">
+  Country code for Indeed/Glassdoor regional domains.
+  
+  ```typescript
+  country: "usa"
+  country: "uk"
+  country: "germany"
+  ```
+</ParamField>
+
+<ParamField path="options.credentials" type="ProviderCredentials">
+  Authentication credentials. See [Authentication](/sdk/authentication) for details.
+  
+  ```typescript
+  credentials: {
+    linkedin: {
+      username: "me@email.com",
+      password: "secret"
+    }
+  }
+  ```
+</ParamField>
+
+<ParamField path="options.useCreds" type="boolean" default="false">
+  Enable credential fallback when anonymous scraping is blocked.
+  
+  ```typescript
+  useCreds: true
+  ```
+</ParamField>
+
+### Return Value
+
+Returns a `FlatJobRecord` (same shape as search results) or `null` if the job wasn't found.
+
+```typescript
+interface FlatJobRecord {
+  id?: string;
+  site: string;
+  title: string;
+  company?: string;
+  location?: string;
+  description?: string;
+  job_url: string;
+  job_url_direct?: string;
+  date_posted?: string;
+  job_type?: string;
+  min_amount?: number;
+  max_amount?: number;
+  interval?: string;
+  currency?: string;
+  salary_source?: string;
+  is_remote?: boolean;
+  // ... and more fields
+}
+```
+
+### Examples
+
+#### Fetch Indeed Job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("indeed", "fdde406379455a1e");
+
+if (job) {
+  console.log(job.title);
+  console.log(job.company);
+  console.log(job.location);
+  console.log(job.description);
+  console.log(job.salary_source);
+} else {
+  console.log("Job not found");
+}
+```
+
+#### Fetch Glassdoor Job with HTML Format
+
+```typescript
+const job = await fetchJobDetails("glassdoor", "123456789", {
+  format: "html",
+  country: "uk",
+});
+
+console.log(job?.description); // HTML format
+```
+
+#### Fetch ZipRecruiter Job via Proxy
+
+```typescript
+const job = await fetchJobDetails("zip_recruiter", "listing-key", {
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+#### With Authentication
+
+```typescript
+const job = await fetchJobDetails("linkedin", "4127292817", {
+  useCreds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+  },
+});
+```
+
+## fetchLinkedInJob()
+
+LinkedIn-specific function for fetching job details. Returns enhanced metadata like seniority level, job function, and company industry.
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob("4127292817");
+console.log(job.description);
+console.log(job.job_level);          // "mid-senior level"
+console.log(job.company_industry);   // "Software Development"
+```
+
+### Function Signature
+
+```typescript
+interface LinkedInJobDetails {
+  job_url: string;
+  description?: string;
+  job_level?: string;
+  job_type?: string[];
+  job_function?: string;
+  company_industry?: string;
+  company_logo?: string;
+  job_url_direct?: string;
+}
+
+async function fetchLinkedInJob(
+  jobIdOrUrl: string,
+  options?: {
+    format?: string;
+    proxies?: string | string[];
+  }
+): Promise<LinkedInJobDetails>
+```
+
+### Parameters
+
+<ParamField path="jobIdOrUrl" type="string" required>
+  LinkedIn job ID or full LinkedIn job URL.
+  
+  ```typescript
+  // By job ID
+  jobIdOrUrl: "4127292817"
+  
+  // By full URL
+  jobIdOrUrl: "https://www.linkedin.com/jobs/view/4127292817"
+  ```
+  
+  The function automatically extracts the job ID from URLs.
+</ParamField>
+
+<ParamField path="options.format" type="string" default="markdown">
+  Description format.
+  
+  **Options:** `markdown`, `html`, `plain`
+  
+  ```typescript
+  format: "plain"
+  ```
+</ParamField>
+
+<ParamField path="options.proxies" type="string | string[]">
+  Proxy server(s) for the request.
+  
+  ```typescript
+  proxies: "user:pass@proxy.example.com:8080"
+  ```
+</ParamField>
+
+### Return Value
+
+Returns a `LinkedInJobDetails` object:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `job_url` | `string` | Canonical LinkedIn job URL |
+| `description` | `string` | Full job description (formatted per `format` option) |
+| `job_level` | `string` | Seniority level (e.g. `"mid-senior level"`, `"entry level"`) |
+| `job_type` | `string[]` | Employment types (e.g. `["fulltime"]`, `["contract", "parttime"]`) |
+| `job_function` | `string` | Job function category (e.g. `"Engineering"`, `"Sales"`) |
+| `company_industry` | `string` | Company industry classification (e.g. `"Software Development"`) |
+| `company_logo` | `string` | Company logo image URL |
+| `job_url_direct` | `string` | Direct employer/ATS application URL (if available) |
+
+### Examples
+
+#### Fetch by Job ID
+
+```typescript
+import { fetchLinkedInJob } from "jobspy-js";
+
+const job = await fetchLinkedInJob("4127292817");
+
+console.log(job.job_url);           // "https://www.linkedin.com/jobs/view/4127292817"
+console.log(job.description);       // Full job description (markdown)
+console.log(job.job_level);         // "mid-senior level"
+console.log(job.job_type);          // ["fulltime"]
+console.log(job.job_function);      // "Engineering"
+console.log(job.company_industry);  // "Software Development"
+console.log(job.job_url_direct);    // Direct application URL
+```
+
+#### Fetch by URL
+
+```typescript
+const job = await fetchLinkedInJob(
+  "https://www.linkedin.com/jobs/view/4127292817"
+);
+
+console.log(job.description);
+```
+
+#### Plain Text Format
+
+```typescript
+const job = await fetchLinkedInJob("4127292817", {
+  format: "plain",
+});
+
+console.log(job.description); // Plain text, no formatting
+```
+
+#### With Proxy
+
+```typescript
+const job = await fetchLinkedInJob("4127292817", {
+  format: "plain",
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+## Extracting Job IDs from Search Results
+
+When using `scrapeJobs()`, each job record includes an `id` field with a site-prefixed ID:
+
+```typescript
+import { scrapeJobs, fetchJobDetails } from "jobspy-js";
+
+// Search for jobs
+const { jobs } = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  results_wanted: 5,
+});
+
+// Fetch full details for the first job
+const firstJob = jobs[0];
+console.log(firstJob.id);    // "in-fdde406379455a1e" (Indeed)
+console.log(firstJob.site);  // "indeed"
+
+// Strip the site prefix to get the raw ID
+const rawId = firstJob.id?.replace(/^[a-z]+-/, "");
+
+// Fetch full details
+const details = await fetchJobDetails(firstJob.site, rawId!);
+console.log(details?.description);
+```
+
+<Tip>
+  Job IDs are prefixed with the site code in search results (e.g. `"in-"` for Indeed, `"li-"` for LinkedIn). Strip the prefix when passing to `fetchJobDetails()`.
+</Tip>
+
+## Extracting Job IDs from URLs
+
+### LinkedIn
+
+LinkedIn job URLs have this format:
+```
+https://www.linkedin.com/jobs/view/4127292817
+```
+
+The job ID is the last segment: `4127292817`
+
+`fetchLinkedInJob()` automatically extracts the ID from URLs, so you can pass either format.
+
+### Indeed
+
+Indeed job URLs include a `jk` query parameter:
+```
+https://www.indeed.com/viewjob?jk=fdde406379455a1e
+```
+
+The job ID is the `jk` value: `fdde406379455a1e`
+
+```typescript
+const url = new URL("https://www.indeed.com/viewjob?jk=fdde406379455a1e");
+const jobId = url.searchParams.get("jk");
+
+const job = await fetchJobDetails("indeed", jobId!);
+```
+
+### Glassdoor
+
+Glassdoor job URLs include the listing ID in the path:
+```
+https://www.glassdoor.com/job-listing/software-engineer-company-JV_IC1234567_KO0,17_KE18,25.htm?jl=123456789
+```
+
+The job ID is the `jl` query parameter: `123456789`
+
+```typescript
+const url = new URL("https://www.glassdoor.com/job-listing/...");
+const jobId = url.searchParams.get("jl");
+
+const job = await fetchJobDetails("glassdoor", jobId!);
+```
+
+## Error Handling
+
+Both functions return `null` (or throw) when the job cannot be fetched:
+
+```typescript
+try {
+  const job = await fetchJobDetails("indeed", "invalid-id");
+  
+  if (!job) {
+    console.log("Job not found or has been removed");
+  }
+} catch (err) {
+  console.error("Failed to fetch job:", err);
+}
+```
+
+```typescript
+try {
+  const job = await fetchLinkedInJob("invalid-id");
+  console.log(job.description);
+} catch (err) {
+  console.error("Failed to fetch LinkedIn job:", err);
+}
+```
+
+## When to Use Each Function
+
+| Use Case | Function to Use |
+|----------|----------------|
+| Fetch job from any site | `fetchJobDetails()` |
+| Need LinkedIn-specific metadata (seniority, function, industry) | `fetchLinkedInJob()` |
+| Have a LinkedIn URL | `fetchLinkedInJob()` (auto-extracts ID) |
+| Need unified output format across sites | `fetchJobDetails()` |
+| Building a multi-site job aggregator | `fetchJobDetails()` |
+
+## See Also
+
+- [Scraping Jobs](/sdk/scraping-jobs) — Main scraping function
+- [Authentication](/sdk/authentication) — Using credentials for authenticated fetching
+- [Proxies](/sdk/proxies) — Proxy configuration for fetching jobs

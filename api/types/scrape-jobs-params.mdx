@@ -1,0 +1,334 @@
+---
+title: ScrapeJobsParams
+description: Parameters for the scrapeJobs() function
+---
+
+## Overview
+
+The `ScrapeJobsParams` interface defines all available parameters for the `scrapeJobs()` function. It provides fine-grained control over which sites to scrape, search criteria, authentication, output format, and more.
+
+## Interface Definition
+
+```typescript
+export interface ScrapeJobsParams {
+  // Search criteria
+  site_name?: string | string[] | Site | Site[];
+  search_term?: string;
+  google_search_term?: string;
+  location?: string;
+  distance?: number;
+  is_remote?: boolean;
+  job_type?: string;
+  easy_apply?: boolean;
+  results_wanted?: number;
+  hours_old?: number;
+  offset?: number;
+
+  // Site-specific
+  country_indeed?: string;
+  linkedin_fetch_description?: boolean;
+  indeed_fetch_description?: boolean;
+  linkedin_company_ids?: number[];
+
+  // Output format
+  description_format?: string;
+  enforce_annual_salary?: boolean;
+  verbose?: number;
+
+  // Proxy
+  proxies?: string | string[];
+
+  // Authentication
+  use_creds?: boolean;
+  credentials?: ProviderCredentials;
+  linkedin_username?: string;
+  linkedin_password?: string;
+  indeed_username?: string;
+  indeed_password?: string;
+  glassdoor_username?: string;
+  glassdoor_password?: string;
+  ziprecruiter_username?: string;
+  ziprecruiter_password?: string;
+  bayt_username?: string;
+  bayt_password?: string;
+  naukri_username?: string;
+  naukri_password?: string;
+  bdjobs_username?: string;
+  bdjobs_password?: string;
+
+  // State management
+  profile?: string;
+  state_file?: string;
+  skip_dedup?: boolean;
+}
+```
+
+## Parameters
+
+### Search Criteria
+
+<ResponseField name="site_name" type="string | string[] | Site | Site[]" optional>
+  Job boards to scrape. Accepts:
+  - Single string: `'linkedin'`
+  - Array of strings: `['linkedin', 'indeed']`
+  - Site enum: `Site.LINKEDIN`
+  - Array of Site enums: `[Site.LINKEDIN, Site.INDEED]`
+  
+  Supported values: `linkedin`, `indeed`, `zip_recruiter`, `glassdoor`, `google`, `google_careers`, `bayt`, `naukri`, `bdjobs`
+</ResponseField>
+
+<ResponseField name="search_term" type="string" optional>
+  Job title or keywords to search for (e.g., `'software engineer'`, `'product manager'`)
+</ResponseField>
+
+<ResponseField name="google_search_term" type="string" optional>
+  Custom search term specifically for Google job search (overrides `search_term` for Google)
+</ResponseField>
+
+<ResponseField name="location" type="string" optional>
+  Geographic location (e.g., `'San Francisco, CA'`, `'New York'`, `'remote'`)
+</ResponseField>
+
+<ResponseField name="distance" type="number" optional>
+  Search radius in miles from the specified location (default varies by site)
+</ResponseField>
+
+<ResponseField name="is_remote" type="boolean" optional>
+  Filter for remote/work-from-home positions only
+</ResponseField>
+
+<ResponseField name="job_type" type="string" optional>
+  Filter by employment type. Accepts: `'fulltime'`, `'parttime'`, `'contract'`, `'temporary'`, `'internship'`
+</ResponseField>
+
+<ResponseField name="easy_apply" type="boolean" optional>
+  Filter for jobs with "Easy Apply" or quick application features (LinkedIn only)
+</ResponseField>
+
+<ResponseField name="results_wanted" type="number" optional>
+  Maximum number of jobs to return (default: 15)
+</ResponseField>
+
+<ResponseField name="hours_old" type="number" optional>
+  Only return jobs posted within the last N hours (e.g., `24` for jobs from the last day)
+</ResponseField>
+
+<ResponseField name="offset" type="number" optional>
+  Number of results to skip (for pagination)
+</ResponseField>
+
+### Site-Specific Options
+
+<ResponseField name="country_indeed" type="string" optional>
+  Country code for Indeed (e.g., `'usa'`, `'uk'`, `'canada'`). See full list in [Country documentation](/sdk/countries).
+</ResponseField>
+
+<ResponseField name="linkedin_fetch_description" type="boolean" optional>
+  Fetch full job descriptions from LinkedIn (slower but more complete data)
+</ResponseField>
+
+<ResponseField name="indeed_fetch_description" type="boolean" optional>
+  Fetch full job descriptions from Indeed (slower but more complete data)
+</ResponseField>
+
+<ResponseField name="linkedin_company_ids" type="number[]" optional>
+  Array of LinkedIn company IDs to filter by (e.g., `[1441, 2374]` for Google and Microsoft)
+</ResponseField>
+
+### Output Format
+
+<ResponseField name="description_format" type="string" optional>
+  Format for job descriptions. Options:
+  - `'markdown'` - Markdown formatted text
+  - `'html'` - HTML markup
+  - `'plain'` - Plain text (default)
+</ResponseField>
+
+<ResponseField name="enforce_annual_salary" type="boolean" optional>
+  Convert all salaries to annual equivalents (useful for comparing hourly vs. yearly compensation)
+</ResponseField>
+
+<ResponseField name="verbose" type="number" optional>
+  Logging verbosity level (0 = silent, 1 = errors only, 2 = warnings, 3 = info, 4 = debug)
+</ResponseField>
+
+### Proxy Configuration
+
+<ResponseField name="proxies" type="string | string[]" optional>
+  HTTP/HTTPS proxy servers to route requests through. Accepts:
+  - Single proxy: `'http://proxy.example.com:8080'`
+  - Array of proxies: `['http://proxy1.com:8080', 'http://proxy2.com:8080']`
+  
+  Format: `protocol://[username:password@]host:port`
+</ResponseField>
+
+### Authentication
+
+<ResponseField name="use_creds" type="boolean" optional>
+  Enable authenticated scraping when anonymous scraping is blocked. Can also be set via `JOBSPY_CREDS=1` environment variable.
+</ResponseField>
+
+<ResponseField name="credentials" type="ProviderCredentials" optional>
+  Pre-built credentials object (takes precedence over individual username/password fields). See [ProviderCredentials](/api/types/credentials).
+</ResponseField>
+
+<ResponseField name="linkedin_username" type="string" optional>
+  LinkedIn account email/username. Can also be set via `LINKEDIN_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="linkedin_password" type="string" optional>
+  LinkedIn account password. Can also be set via `LINKEDIN_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="indeed_username" type="string" optional>
+  Indeed account email/username. Can also be set via `INDEED_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="indeed_password" type="string" optional>
+  Indeed account password. Can also be set via `INDEED_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="glassdoor_username" type="string" optional>
+  Glassdoor account email/username. Can also be set via `GLASSDOOR_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="glassdoor_password" type="string" optional>
+  Glassdoor account password. Can also be set via `GLASSDOOR_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="ziprecruiter_username" type="string" optional>
+  ZipRecruiter account email/username. Can also be set via `ZIPRECRUITER_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="ziprecruiter_password" type="string" optional>
+  ZipRecruiter account password. Can also be set via `ZIPRECRUITER_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="bayt_username" type="string" optional>
+  Bayt account email/username. Can also be set via `BAYT_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="bayt_password" type="string" optional>
+  Bayt account password. Can also be set via `BAYT_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="naukri_username" type="string" optional>
+  Naukri account email/username. Can also be set via `NAUKRI_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="naukri_password" type="string" optional>
+  Naukri account password. Can also be set via `NAUKRI_PASSWORD` environment variable.
+</ResponseField>
+
+<ResponseField name="bdjobs_username" type="string" optional>
+  BDJobs account email/username. Can also be set via `BDJOBS_USERNAME` environment variable.
+</ResponseField>
+
+<ResponseField name="bdjobs_password" type="string" optional>
+  BDJobs account password. Can also be set via `BDJOBS_PASSWORD` environment variable.
+</ResponseField>
+
+### State Management
+
+<ResponseField name="profile" type="string" optional>
+  Profile name to load from `jobspy.json` config file (CLI only)
+</ResponseField>
+
+<ResponseField name="state_file" type="string" optional>
+  Path to state file for deduplication tracking (default: `~/.config/jobspy/state.json`)
+</ResponseField>
+
+<ResponseField name="skip_dedup" type="boolean" optional>
+  Skip deduplication of jobs across sites (faster but may return duplicates)
+</ResponseField>
+
+## Example Usage
+
+### Basic Search
+
+```typescript
+import { scrapeJobs, Site } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: [Site.LINKEDIN, Site.INDEED],
+  search_term: 'frontend developer',
+  location: 'Seattle, WA',
+  results_wanted: 25
+});
+```
+
+### Advanced Filtering
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed', 'glassdoor'],
+  search_term: 'senior data engineer',
+  location: 'remote',
+  is_remote: true,
+  job_type: 'fulltime',
+  hours_old: 48, // Only jobs posted in last 2 days
+  results_wanted: 50,
+  description_format: 'markdown',
+  linkedin_fetch_description: true
+});
+```
+
+### With Authentication
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'product manager',
+  location: 'San Francisco, CA',
+  use_creds: true,
+  linkedin_username: 'your-email@example.com',
+  linkedin_password: 'your-password'
+});
+```
+
+### With Proxies
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['indeed', 'glassdoor'],
+  search_term: 'software architect',
+  proxies: [
+    'http://proxy1.example.com:8080',
+    'http://proxy2.example.com:8080'
+  ]
+});
+```
+
+### Company-Specific Search
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'engineer',
+  linkedin_company_ids: [1441, 2374], // Google and Microsoft
+  results_wanted: 100
+});
+```
+
+## Notes
+
+- All parameters are optional, but at least `site_name` is recommended for meaningful results.
+- Environment variables take precedence over parameters for credential fields.
+- The `credentials` object takes precedence over individual username/password parameters.
+- Authenticated scraping (`use_creds: true`) should only be used when anonymous scraping fails.
+- Fetching full descriptions (`linkedin_fetch_description`, `indeed_fetch_description`) significantly increases scraping time.
+
+## Related Types
+
+- [JobResponse](/api/types/job-response) - Return type from scrapeJobs()
+- [ProviderCredentials](/api/types/credentials) - Authentication credentials structure
+- [Site enum](/api/enums/site) - Supported job board identifiers
+- [scrapeJobs()](/api/scrape-jobs) - Main scraping function

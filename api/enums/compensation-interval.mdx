@@ -1,0 +1,260 @@
+---
+title: CompensationInterval
+description: Time period units for salary and compensation data
+---
+
+The `CompensationInterval` enum defines standardized time intervals for expressing compensation amounts in job postings. This ensures consistent interpretation of salary data across different job boards and regions.
+
+## Enum Values
+
+### `YEARLY`
+
+**Value:** `"yearly"`
+
+Annual salary or compensation.
+
+- Most common for salaried positions
+- Typically used for professional and corporate roles
+- Often expressed as gross income before taxes
+
+**Example:** $100,000 yearly = $100,000 per year
+
+### `MONTHLY`
+
+**Value:** `"monthly"`
+
+Monthly salary or compensation.
+
+- Common in international markets
+- Standard in many European and Asian countries
+- Often used for salaried positions outside the US
+
+**Example:** €4,000 monthly = €4,000 per month
+
+### `WEEKLY`
+
+**Value:** `"weekly"`
+
+Weekly pay or compensation.
+
+- Common for hourly workers paid on weekly schedule
+- Used in staffing and temporary positions
+- Typical in construction, retail, and service industries
+
+**Example:** $800 weekly = $800 per week
+
+### `DAILY`
+
+**Value:** `"daily"`
+
+Daily rate or per diem compensation.
+
+- Common for contractors and freelancers
+- Used in consulting and project-based work
+- Standard for per diem healthcare and education roles
+
+**Example:** $300 daily = $300 per day
+
+### `HOURLY`
+
+**Value:** `"hourly"`
+
+Hourly wage or rate.
+
+- Standard for hourly employees
+- Most common for part-time and shift work
+- Used extensively in retail, hospitality, and entry-level positions
+
+**Example:** $25 hourly = $25 per hour
+
+## Usage in Results
+
+### Reading Compensation Data
+
+```typescript
+import { scrapeJobs, Site, CompensationInterval } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'software engineer',
+  location: 'Boston, MA',
+  results_wanted: 50
+});
+
+// Iterate through results and analyze compensation
+for (const job of results.jobs) {
+  if (job.compensation) {
+    const { interval, min_amount, max_amount, currency } = job.compensation;
+    
+    if (interval === CompensationInterval.YEARLY) {
+      console.log(`${job.title} at ${job.company_name}`);
+      console.log(`Salary: ${currency}${min_amount}-${max_amount} per year`);
+    }
+  }
+}
+```
+
+### Filtering by Salary Range
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'data analyst',
+  results_wanted: 100
+});
+
+// Find jobs with annual salary >= $80k
+const highPayingJobs = results.jobs.filter(job => {
+  const comp = job.compensation;
+  return comp && 
+    comp.interval === CompensationInterval.YEARLY &&
+    comp.min_amount && 
+    comp.min_amount >= 80000;
+});
+
+console.log(`Found ${highPayingJobs.length} jobs paying $80k+ annually`);
+```
+
+### Converting Between Intervals
+
+```typescript
+import { CompensationInterval } from 'jobspy-js';
+
+function convertToYearly(amount: number, interval: CompensationInterval): number {
+  switch (interval) {
+    case CompensationInterval.YEARLY:
+      return amount;
+    case CompensationInterval.MONTHLY:
+      return amount * 12;
+    case CompensationInterval.WEEKLY:
+      return amount * 52;
+    case CompensationInterval.DAILY:
+      return amount * 260; // assuming 260 working days
+    case CompensationInterval.HOURLY:
+      return amount * 2080; // assuming 40 hours/week, 52 weeks
+    default:
+      return amount;
+  }
+}
+
+// Example usage
+const results = await scrapeJobs({
+  site_name: Site.GLASSDOOR,
+  search_term: 'developer',
+  results_wanted: 50
+});
+
+for (const job of results.jobs) {
+  if (job.compensation?.min_amount && job.compensation.interval) {
+    const yearlyEquivalent = convertToYearly(
+      job.compensation.min_amount,
+      job.compensation.interval
+    );
+    console.log(`${job.title}: ~$${yearlyEquivalent.toLocaleString()}/year`);
+  }
+}
+```
+
+### Grouping by Interval
+
+```typescript
+import { scrapeJobs, CompensationInterval } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'nurse',
+  results_wanted: 100
+});
+
+// Group jobs by compensation interval
+const byInterval = results.jobs.reduce((acc, job) => {
+  const interval = job.compensation?.interval;
+  if (interval) {
+    if (!acc[interval]) acc[interval] = [];
+    acc[interval].push(job);
+  }
+  return acc;
+}, {} as Record<CompensationInterval, typeof results.jobs>);
+
+console.log(`Hourly positions: ${byInterval[CompensationInterval.HOURLY]?.length || 0}`);
+console.log(`Annual salaries: ${byInterval[CompensationInterval.YEARLY]?.length || 0}`);
+```
+
+## Automatic Normalization
+
+JobSpy automatically normalizes various pay period formats to standard intervals using the `getCompensationInterval()` helper function.
+
+### Recognized Formats
+
+The following strings are automatically normalized:
+
+**YEARLY:**
+- `"YEAR"`, `"year"`
+- `"YEARLY"`, `"yearly"`
+- `"ANNUAL"`, `"annual"`
+- `"ANNUALLY"`, `"annually"`
+
+**MONTHLY:**
+- `"MONTH"`, `"month"`
+- `"MONTHLY"`, `"monthly"`
+
+**WEEKLY:**
+- `"WEEK"`, `"week"`
+- `"WEEKLY"`, `"weekly"`
+
+**DAILY:**
+- `"DAY"`, `"day"`
+- `"DAILY"`, `"daily"`
+
+**HOURLY:**
+- `"HOUR"`, `"hour"`
+- `"HOURLY"`, `"hourly"`
+
+### Using the Helper Function
+
+```typescript
+import { getCompensationInterval } from 'jobspy-js';
+
+// Normalize various formats (case-insensitive)
+const interval1 = getCompensationInterval('YEAR'); // CompensationInterval.YEARLY
+const interval2 = getCompensationInterval('annual'); // CompensationInterval.YEARLY
+const interval3 = getCompensationInterval('HOURLY'); // CompensationInterval.HOURLY
+const interval4 = getCompensationInterval('month'); // CompensationInterval.MONTHLY
+const interval5 = getCompensationInterval('unknown'); // null (not recognized)
+```
+
+## Type Definition
+
+```typescript
+enum CompensationInterval {
+  YEARLY = "yearly",
+  MONTHLY = "monthly",
+  WEEKLY = "weekly",
+  DAILY = "daily",
+  HOURLY = "hourly",
+}
+
+// Helper function for normalization
+function getCompensationInterval(payPeriod: string): CompensationInterval | null;
+```
+
+## Compensation Interface
+
+The `CompensationInterval` enum is used within the `Compensation` interface:
+
+```typescript
+interface Compensation {
+  interval?: CompensationInterval;
+  min_amount?: number;
+  max_amount?: number;
+  currency?: string; // e.g., "USD", "EUR", "GBP"
+}
+```
+
+## Related
+
+- [Compensation](/api/types/compensation) - Full compensation data structure
+- [JobPost](/api/types/job-post) - Interface that includes compensation field
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - Parameters including enforce_annual_salary option

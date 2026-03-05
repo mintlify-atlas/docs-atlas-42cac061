@@ -1,0 +1,495 @@
+---
+title: "Authentication"
+description: "Using credentials for authenticated scraping when anonymous access is blocked"
+---
+
+## Overview
+
+All JobSpy JS scrapers support **optional authenticated scraping** as a fallback for when anonymous access is blocked. This includes situations like:
+
+- LinkedIn 429 rate limiting
+- Auth-wall redirects
+- CAPTCHA challenges
+- IP-based blocking
+
+**Important:** Credentials are **never used unless explicitly enabled**. By default, all scraping is done anonymously.
+
+<Warning>
+  Use authenticated scraping sparingly and in compliance with each platform's Terms of Service. Automated access may violate their policies.
+</Warning>
+
+## Enabling Authenticated Scraping
+
+There are three ways to enable credential fallback:
+
+### 1. Environment Variable
+
+Set `JOBSPY_CREDS=1` to enable credential fallback globally:
+
+```bash
+export JOBSPY_CREDS=1
+# or
+JOBSPY_CREDS=1 node script.js
+```
+
+### 2. SDK Parameter
+
+Set `use_creds: true` when calling `scrapeJobs()` or `fetchJobDetails()`:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,  // Enable credential fallback
+});
+```
+
+### 3. CLI Flag
+
+Use the `--creds` flag:
+
+```bash
+jobspy -s linkedin -q "engineer" --creds
+```
+
+## Providing Credentials
+
+Credentials can be provided in three ways, with the following priority (highest to lowest):
+
+1. **Explicit `credentials` object** in SDK parameters
+2. **Per-provider parameters** (`linkedin_username`, `linkedin_password`, etc.)
+3. **Environment variables**
+
+### 1. Explicit Credentials Object
+
+Pass a `credentials` object to `scrapeJobs()` or `fetchJobDetails()`:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "engineer",
+  use_creds: true,
+  credentials: {
+    linkedin: {
+      username: "me@email.com",
+      password: "secret",
+    },
+    indeed: {
+      username: "me@email.com",
+      password: "secret",
+    },
+  },
+});
+```
+
+**Type Definition:**
+
+```typescript
+interface ProviderCreds {
+  username: string;
+  password: string;
+}
+
+interface ProviderCredentials {
+  linkedin?: ProviderCreds;
+  indeed?: ProviderCreds;
+  glassdoor?: ProviderCreds;
+  zip_recruiter?: ProviderCreds;
+  bayt?: ProviderCreds;
+  naukri?: ProviderCreds;
+  bdjobs?: ProviderCreds;
+}
+```
+
+### 2. Per-Provider Parameters
+
+Pass individual credential parameters:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,
+  linkedin_username: "me@email.com",
+  linkedin_password: "secret",
+});
+```
+
+**Available Parameters:**
+
+| Site | Username Parameter | Password Parameter |
+|------|-------------------|--------------------|
+| LinkedIn | `linkedin_username` | `linkedin_password` |
+| Indeed | `indeed_username` | `indeed_password` |
+| Glassdoor | `glassdoor_username` | `glassdoor_password` |
+| ZipRecruiter | `ziprecruiter_username` | `ziprecruiter_password` |
+| Bayt | `bayt_username` | `bayt_password` |
+| Naukri | `naukri_username` | `naukri_password` |
+| BDJobs | `bdjobs_username` | `bdjobs_password` |
+
+### 3. Environment Variables
+
+Set environment variables for each provider:
+
+```bash
+export LINKEDIN_USERNAME="me@email.com"
+export LINKEDIN_PASSWORD="secret"
+export INDEED_USERNAME="me@email.com"
+export INDEED_PASSWORD="secret"
+export GLASSDOOR_USERNAME="me@email.com"
+export GLASSDOOR_PASSWORD="secret"
+export ZIPRECRUITER_USERNAME="me@email.com"
+export ZIPRECRUITER_PASSWORD="secret"
+export BAYT_USERNAME="me@email.com"
+export BAYT_PASSWORD="secret"
+export NAUKRI_USERNAME="me@email.com"
+export NAUKRI_PASSWORD="secret"
+export BDJOBS_USERNAME="me@email.com"
+export BDJOBS_PASSWORD="secret"
+```
+
+Then enable credential fallback:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+// Credentials loaded from environment variables
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "engineer",
+  use_creds: true,
+});
+```
+
+**Supported Environment Variables:**
+
+| Provider | Username Env Var | Password Env Var |
+|----------|-----------------|------------------|
+| LinkedIn | `LINKEDIN_USERNAME` | `LINKEDIN_PASSWORD` |
+| Indeed | `INDEED_USERNAME` | `INDEED_PASSWORD` |
+| Glassdoor | `GLASSDOOR_USERNAME` | `GLASSDOOR_PASSWORD` |
+| ZipRecruiter | `ZIPRECRUITER_USERNAME` | `ZIPRECRUITER_PASSWORD` |
+| Bayt | `BAYT_USERNAME` | `BAYT_PASSWORD` |
+| Naukri | `NAUKRI_USERNAME` | `NAUKRI_PASSWORD` |
+| BDJobs | `BDJOBS_USERNAME` | `BDJOBS_PASSWORD` |
+
+## CLI Usage
+
+### Environment Variables
+
+```bash
+JOBSPY_CREDS=1 \
+LINKEDIN_USERNAME="me@email.com" \
+LINKEDIN_PASSWORD="secret" \
+jobspy -s linkedin -q "engineer"
+```
+
+### CLI Flags
+
+```bash
+jobspy -s linkedin -q "engineer" --creds \
+  --linkedin-username "me@email.com" \
+  --linkedin-password "secret"
+```
+
+### Config File (jobspy.json)
+
+Store credentials in a profile:
+
+```json
+{
+  "config": {
+    "profiles": {
+      "frontend": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "react developer",
+        "creds": true,
+        "linkedin_username": "me@email.com",
+        "linkedin_password": "secret",
+        "indeed_username": "me@email.com",
+        "indeed_password": "secret"
+      }
+    }
+  }
+}
+```
+
+Then run:
+
+```bash
+jobspy --profile frontend
+```
+
+<Warning>
+  **Security Note:** Prefer environment variables over storing passwords in `jobspy.json`. The config file may be committed to version control by accident.
+</Warning>
+
+## Examples
+
+### Basic Authenticated Scraping
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+  },
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+```
+
+### Multiple Sites with Credentials
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed", "glassdoor"],
+  search_term: "data scientist",
+  use_creds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+    indeed: {
+      username: process.env.INDEED_USERNAME!,
+      password: process.env.INDEED_PASSWORD!,
+    },
+    glassdoor: {
+      username: process.env.GLASSDOOR_USERNAME!,
+      password: process.env.GLASSDOOR_PASSWORD!,
+    },
+  },
+});
+```
+
+### Using Per-Provider Parameters
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,
+  linkedin_username: process.env.LINKEDIN_USERNAME,
+  linkedin_password: process.env.LINKEDIN_PASSWORD,
+});
+```
+
+### Environment Variables Only
+
+```typescript
+// Set these environment variables:
+// JOBSPY_CREDS=1
+// LINKEDIN_USERNAME=me@email.com
+// LINKEDIN_PASSWORD=secret
+
+import { scrapeJobs } from "jobspy-js";
+
+// Credentials loaded automatically from env vars
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  // use_creds not needed - JOBSPY_CREDS=1 enables it
+});
+```
+
+### Fetching Job Details with Credentials
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("linkedin", "4127292817", {
+  useCreds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+  },
+});
+
+console.log(job?.description);
+```
+
+### Fetching LinkedIn Job with Credentials
+
+The `fetchLinkedInJob()` function doesn't directly accept credentials, but you can use `fetchJobDetails()` instead:
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("linkedin", "4127292817", {
+  useCreds: true,
+  credentials: {
+    linkedin: {
+      username: process.env.LINKEDIN_USERNAME!,
+      password: process.env.LINKEDIN_PASSWORD!,
+    },
+  },
+});
+```
+
+## How Credential Fallback Works
+
+1. **Anonymous attempt first:** JobSpy always tries anonymous scraping first
+2. **Fallback on failure:** Only when anonymous scraping fails (429, auth-wall, etc.) and `use_creds=true` are credentials used
+3. **Per-provider basis:** Each scraper decides independently whether to use credentials
+4. **Session management:** Authenticated sessions are automatically managed and cleaned up
+
+## Credential Priority
+
+When multiple credential sources are provided, they're merged with this priority:
+
+```typescript
+// Priority order (highest to lowest):
+// 1. Explicit credentials object
+// 2. Per-provider parameters
+// 3. Environment variables
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+  use_creds: true,
+  
+  // Priority 2: Per-provider parameter
+  linkedin_username: "param@email.com",
+  linkedin_password: "param-pass",
+  
+  // Priority 1: Explicit credentials (wins)
+  credentials: {
+    linkedin: {
+      username: "explicit@email.com",
+      password: "explicit-pass",
+    },
+  },
+});
+
+// Uses: explicit@email.com / explicit-pass
+```
+
+## Security Best Practices
+
+### 1. Use Environment Variables
+
+Never hardcode credentials in your source code:
+
+```typescript
+// ❌ Bad
+const result = await scrapeJobs({
+  linkedin_username: "me@email.com",
+  linkedin_password: "secret",
+  use_creds: true,
+});
+
+// ✅ Good
+const result = await scrapeJobs({
+  linkedin_username: process.env.LINKEDIN_USERNAME,
+  linkedin_password: process.env.LINKEDIN_PASSWORD,
+  use_creds: true,
+});
+```
+
+### 2. Use .env Files
+
+Store credentials in a `.env` file (add to `.gitignore`):
+
+```bash
+# .env
+JOBSPY_CREDS=1
+LINKEDIN_USERNAME=me@email.com
+LINKEDIN_PASSWORD=secret
+INDEED_USERNAME=me@email.com
+INDEED_PASSWORD=secret
+```
+
+Load with [dotenv](https://www.npmjs.com/package/dotenv):
+
+```typescript
+import "dotenv/config";
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin"],
+  search_term: "engineer",
+});
+```
+
+### 3. Avoid Storing Credentials in jobspy.json
+
+If you must store credentials in `jobspy.json`, ensure the file is:
+
+1. Added to `.gitignore`
+2. Not committed to version control
+3. Has restricted file permissions (`chmod 600`)
+
+```bash
+# Add to .gitignore
+echo "jobspy.json" >> .gitignore
+
+# Restrict file permissions
+chmod 600 jobspy.json
+```
+
+### 4. Use Dedicated Accounts
+
+Create dedicated accounts for scraping instead of using your personal accounts. This limits exposure if credentials are compromised.
+
+### 5. Rotate Credentials Regularly
+
+Change passwords periodically, especially if you suspect they may have been exposed.
+
+## Troubleshooting
+
+### Credentials Not Being Used
+
+If credentials aren't being used even when provided:
+
+1. **Check that `use_creds` is enabled:**
+   ```typescript
+   use_creds: true  // or JOBSPY_CREDS=1
+   ```
+
+2. **Verify environment variables are set:**
+   ```bash
+   echo $LINKEDIN_USERNAME
+   echo $LINKEDIN_PASSWORD
+   ```
+
+3. **Check for typos in parameter names:**
+   ```typescript
+   linkedin_username  // ✅ Correct
+   linkedIn_username  // ❌ Wrong
+   ```
+
+### Login Failures
+
+- Verify credentials are correct by logging in manually
+- Check if 2FA is enabled (not supported)
+- Some sites may block automated logins from certain IPs
+- Try using a proxy from a residential IP range
+
+### Rate Limiting Even with Credentials
+
+Authenticated scraping doesn't bypass all rate limits. If you're still hitting limits:
+
+- Reduce `results_wanted`
+- Add delays between requests
+- Use proxies to distribute requests
+- Consider scraping fewer sites at once
+
+## See Also
+
+- [Proxies](/sdk/proxies) — Combine credentials with proxy rotation
+- [Scraping Jobs](/sdk/scraping-jobs) — Main scraping function
+- [Fetching Job Details](/sdk/fetching-job-details) — Fetch single jobs with auth

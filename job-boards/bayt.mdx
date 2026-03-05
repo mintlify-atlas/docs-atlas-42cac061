@@ -1,0 +1,367 @@
+---
+title: Bayt
+description: Scrape job postings from Bayt, the leading job site in the Middle East
+---
+
+## Overview
+
+Bayt is the #1 job site in the Middle East and North Africa, connecting employers with job seekers across 20+ countries. JobSpy JS scrapes Bayt using **HTML parsing** of the job search pages.
+
+## Scraping Method
+
+**HTML scraping** of `https://www.bayt.com/en/international/jobs/`
+
+- Fetches job listing pages via HTTP
+- Parses HTML using Cheerio (jQuery-like DOM manipulation)
+- Extracts job cards with metadata
+- Supports pagination
+- Includes built-in delays (2-5 seconds between pages) to avoid rate limits
+
+## Geographic Focus
+
+Bayt is optimized for job searches in:
+- United Arab Emirates (UAE)
+- Saudi Arabia
+- Qatar
+- Kuwait
+- Bahrain
+- Oman
+- Egypt
+- Jordan
+- Lebanon
+- And 10+ other MENA countries
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "software engineer",
+  results_wanted: 30,
+});
+
+console.log(`Found ${result.jobs.length} jobs on Bayt`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Search by role
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "accountant",
+  results_wanted: 50,
+});
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by Bayt job URL path (e.g., "/en/job-title-1234567")
+const job = await fetchJobDetails(
+  "bayt",
+  "/en/international/jobs/software-engineer-1234567"
+);
+
+console.log(job.title);
+console.log(job.description);  // Full job description
+```
+
+### Multiple searches
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const roles = ["engineer", "manager", "accountant", "designer"];
+const allJobs = [];
+
+for (const role of roles) {
+  const result = await scrapeJobs({
+    site_name: ["bayt"],
+    search_term: role,
+    results_wanted: 20,
+  });
+  allJobs.push(...result.jobs);
+  
+  // Wait between searches to avoid rate limits
+  await new Promise(resolve => setTimeout(resolve, 5000));
+}
+
+console.log(`Total: ${allJobs.length} jobs across ${roles.length} roles`);
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords (required for meaningful results) |
+| `location` | ❌ | Not supported; results are region-wide |
+| `distance` | ❌ | Not supported |
+| `is_remote` | ❌ | Not supported |
+| `job_type` | ❌ | Not supported |
+| `hours_old` | ❌ | Not supported |
+| `easy_apply` | ❌ | Not supported |
+
+<Warning>
+  Bayt has limited search filter support. Use `search_term` and filter results in code based on returned job metadata.
+</Warning>
+
+## Returned Fields
+
+Bayt returns basic job information from search results:
+
+### Core fields
+- `id` (generated from job URL hash)
+- `title`
+- `company_name`
+- `location.city` (single string, no state/country breakdown)
+- `job_url`
+
+### When fetching a single job
+
+Using `fetchJobDetails()` returns:
+- All core fields above
+- `description` (full job description in HTML or markdown)
+- `emails` (extracted from description)
+
+<Note>
+  Search results on Bayt include minimal data. For full job details, use `fetchJobDetails()` with the job's URL path.
+</Note>
+
+## Rate Limits & Best Practices
+
+### Built-in delays
+
+Bayt scraper includes automatic delays (2-5 seconds) between page requests. Do not remove these delays or risk being blocked.
+
+### Moderate batch sizes
+
+```typescript
+// ✅ Good: Reasonable request count
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "engineer",
+  results_wanted: 50,  // ~5 pages, 10-25 seconds
+});
+
+// ⚠️ Slow: Many pages
+const result2 = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "manager",
+  results_wanted: 200,  // ~20 pages, 40-100 seconds
+});
+```
+
+### Use proxies for reliability
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "data analyst",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 100,
+});
+```
+
+### Add delays between runs
+
+For multiple consecutive searches, add manual delays:
+
+```typescript
+for (const term of ["engineer", "designer", "manager"]) {
+  const result = await scrapeJobs({
+    site_name: ["bayt"],
+    search_term: term,
+    results_wanted: 30,
+  });
+  console.log(`Found ${result.jobs.length} ${term} jobs`);
+  
+  // Wait 10 seconds between searches
+  await new Promise(resolve => setTimeout(resolve, 10_000));
+}
+```
+
+## Troubleshooting
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Causes:**
+1. No jobs match your search term
+2. Bayt's page structure changed
+
+**Solutions:**
+1. Try broader search terms (e.g., "engineer" instead of "senior backend engineer")
+2. Check for updates to `jobspy-js`
+3. Try a different search term known to have results (e.g., "manager")
+
+### Missing company names
+
+**Symptom:** `company_name` is `undefined` for some jobs
+
+**Note:** Some Bayt listings don't include company names (confidential recruiters). This is expected behavior.
+
+### Duplicate jobs
+
+**Symptom:** Same job appears multiple times
+
+**Cause:** Bayt may show the same job on multiple pages
+
+**Solution:** Deduplicate by job URL or ID:
+```typescript
+const uniqueJobs = Array.from(
+  new Map(result.jobs.map(job => [job.job_url, job])).values()
+);
+```
+
+### Rate limiting / blocking
+
+**Symptom:** Requests fail after several pages
+
+**Solutions:**
+1. Use residential proxies
+2. Reduce `results_wanted`
+3. Add longer delays between searches
+4. Rotate proxies for parallel searches
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s bayt -q "software engineer" -n 30
+
+# Multiple roles
+jobspy -s bayt -q "accountant" -n 50 -o accountant-jobs.json
+jobspy -s bayt -q "manager" -n 50 -o manager-jobs.json
+
+# Export to CSV
+jobspy -s bayt -q "engineer" -n 100 -o bayt-jobs.csv
+
+# Fetch single job by URL path
+jobspy -s bayt --id "/en/international/jobs/software-engineer-1234567"
+```
+
+## Use Cases
+
+### Job market analysis
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const roles = [
+  "software engineer",
+  "data analyst",
+  "project manager",
+  "accountant",
+  "sales manager",
+];
+
+const jobCounts: Record<string, number> = {};
+
+for (const role of roles) {
+  const result = await scrapeJobs({
+    site_name: ["bayt"],
+    search_term: role,
+    results_wanted: 100,
+  });
+  jobCounts[role] = result.jobs.length;
+  await new Promise(resolve => setTimeout(resolve, 10_000));
+}
+
+console.log("Job availability by role:");
+for (const [role, count] of Object.entries(jobCounts)) {
+  console.log(`${role}: ${count} jobs`);
+}
+```
+
+### Extract contact information
+
+```typescript
+import { scrapeJobs, fetchJobDetails } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "engineer",
+  results_wanted: 50,
+});
+
+const jobsWithEmails = [];
+
+for (const job of result.jobs) {
+  // Fetch full description to extract emails
+  const fullJob = await fetchJobDetails("bayt", job.job_url!);
+  if (fullJob?.emails && fullJob.emails.length > 0) {
+    jobsWithEmails.push(fullJob);
+  }
+  await new Promise(resolve => setTimeout(resolve, 2000));
+}
+
+console.log(`${jobsWithEmails.length} jobs include contact emails`);
+```
+
+### Monitor new postings
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+import fs from "fs";
+
+const LAST_RUN_FILE = "bayt-last-run.json";
+
+const result = await scrapeJobs({
+  site_name: ["bayt"],
+  search_term: "software engineer",
+  results_wanted: 50,
+});
+
+const lastRunUrls = fs.existsSync(LAST_RUN_FILE)
+  ? JSON.parse(fs.readFileSync(LAST_RUN_FILE, "utf-8"))
+  : [];
+
+const lastRunSet = new Set(lastRunUrls);
+const newJobs = result.jobs.filter(job => !lastRunSet.has(job.job_url));
+
+console.log(`${newJobs.length} new jobs since last run`);
+for (const job of newJobs) {
+  console.log(`NEW: ${job.title} at ${job.company_name}`);
+}
+
+const currentUrls = result.jobs.map(job => job.job_url);
+fs.writeFileSync(LAST_RUN_FILE, JSON.stringify(currentUrls));
+```
+
+## Regional Considerations
+
+### Language
+
+Bayt primarily operates in **English** and **Arabic**. JobSpy scrapes the English version (`/en/`).
+
+### Job markets
+
+Bayt is strongest in:
+- **UAE** (Dubai, Abu Dhabi)
+- **Saudi Arabia** (Riyadh, Jeddah)
+- **Qatar** (Doha)
+- **Kuwait**
+- **Egypt** (Cairo)
+
+### Currency
+
+Salary information (when available) is typically in local currencies (AED, SAR, QAR, etc.).
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/bayt/index.ts`
+- Key: `bayt`
+- Site enum: `Site.BAYT`

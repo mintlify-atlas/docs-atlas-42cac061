@@ -1,0 +1,504 @@
+---
+title: "Scraping Jobs"
+description: "Scrape job postings from multiple job boards concurrently with scrapeJobs()"
+---
+
+## Overview
+
+The `scrapeJobs()` function is the main entry point for JobSpy JS. It scrapes one or more job boards in parallel and returns a unified result set with job postings from all requested sites.
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 20,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+```
+
+## Function Signature
+
+```typescript
+interface ScrapeJobsResult {
+  jobs: FlatJobRecord[];
+  totalScraped: number;
+  newCount: number;
+  profile?: {
+    name: string;
+    lastRunAt: string | null;
+    stateFile: string;
+  };
+}
+
+async function scrapeJobs(
+  params?: ScrapeJobsParams
+): Promise<ScrapeJobsResult>
+```
+
+## Core Parameters
+
+<ParamField path="site_name" type="string | string[] | Site | Site[]" default="all sites">
+  Job boards to scrape. Accepts site keys as strings or `Site` enum values.
+  
+  **Supported sites:** `linkedin`, `indeed`, `glassdoor`, `google`, `google_careers`, `zip_recruiter`, `bayt`, `naukri`, `bdjobs`
+  
+  Site names are normalized—`"ziprecruiter"`, `"zip_recruiter"`, and `"zip-recruiter"` all work.
+  
+  ```typescript
+  // Single site
+  site_name: "linkedin"
+  
+  // Multiple sites
+  site_name: ["indeed", "linkedin", "glassdoor"]
+  
+  // Using enum
+  import { Site } from "jobspy-js";
+  site_name: [Site.INDEED, Site.LINKEDIN]
+  ```
+</ParamField>
+
+<ParamField path="search_term" type="string">
+  Job title or search query.
+  
+  ```typescript
+  search_term: "react developer"
+  search_term: "senior python engineer"
+  search_term: "data scientist machine learning"
+  ```
+</ParamField>
+
+<ParamField path="location" type="string">
+  Job location. Can be a city, state, country, or "Remote".
+  
+  ```typescript
+  location: "San Francisco, CA"
+  location: "New York"
+  location: "London"
+  location: "Remote"
+  ```
+</ParamField>
+
+<ParamField path="results_wanted" type="number" default="15">
+  Maximum number of results **per site**. Total results may be up to `results_wanted × number_of_sites`.
+  
+  ```typescript
+  results_wanted: 50  // Get up to 50 jobs from each site
+  ```
+</ParamField>
+
+## Search Filters
+
+<ParamField path="is_remote" type="boolean" default="false">
+  Filter for remote jobs only.
+  
+  ```typescript
+  is_remote: true
+  ```
+</ParamField>
+
+<ParamField path="job_type" type="string">
+  Filter by employment type.
+  
+  **Valid values:** `fulltime`, `parttime`, `contract`, `internship`, `temporary`
+  
+  ```typescript
+  job_type: "fulltime"
+  ```
+  
+  <Note>
+    Not all job types are supported on every site. LinkedIn supports `fulltime`, `parttime`, `internship`, `contract`, and `temporary`. Indeed supports `fulltime`, `parttime`, `contract`, and `internship`.
+  </Note>
+</ParamField>
+
+<ParamField path="distance" type="number" default="50">
+  Search radius in miles from the specified location.
+  
+  ```typescript
+  distance: 25  // Search within 25 miles
+  ```
+</ParamField>
+
+<ParamField path="easy_apply" type="boolean">
+  Filter for easy-apply jobs (supported on LinkedIn, Indeed, Glassdoor).
+  
+  ```typescript
+  easy_apply: true
+  ```
+</ParamField>
+
+<ParamField path="hours_old" type="number">
+  Only return jobs posted within the last N hours.
+  
+  ```typescript
+  hours_old: 24  // Jobs posted in last 24 hours
+  hours_old: 168 // Jobs posted in last week
+  ```
+</ParamField>
+
+## Description & Format
+
+<ParamField path="description_format" type="string" default="markdown">
+  Format for job descriptions.
+  
+  **Options:** `markdown`, `html`, `plain`
+  
+  ```typescript
+  description_format: "markdown"  // Convert HTML to Markdown
+  description_format: "html"      // Keep original HTML
+  description_format: "plain"     // Strip all markup
+  ```
+</ParamField>
+
+<ParamField path="linkedin_fetch_description" type="boolean" default="false">
+  Fetch full job descriptions from LinkedIn. Requires an extra HTTP request per job (slower).
+  
+  ```typescript
+  linkedin_fetch_description: true
+  ```
+  
+  <Warning>
+    Enabling this option significantly increases scraping time. Use only when you need complete LinkedIn job descriptions.
+  </Warning>
+</ParamField>
+
+<ParamField path="indeed_fetch_description" type="boolean" default="false">
+  Fetch full descriptions by visiting Indeed job pages or direct links.
+  
+  ```typescript
+  indeed_fetch_description: true
+  ```
+</ParamField>
+
+## Site-Specific Options
+
+<ParamField path="google_search_term" type="string">
+  Override `search_term` for the Google scraper only. Useful for customizing Google's broader search syntax.
+  
+  ```typescript
+  search_term: "software engineer",
+  google_search_term: "software engineer jobs near San Francisco CA"
+  ```
+</ParamField>
+
+<ParamField path="linkedin_company_ids" type="number[]">
+  Filter LinkedIn results to specific company IDs.
+  
+  ```typescript
+  // Only jobs from Google (1441) and Microsoft (1035)
+  linkedin_company_ids: [1441, 1035]
+  ```
+  
+  <Tip>
+    Find LinkedIn company IDs by visiting a company page on LinkedIn and extracting the ID from the URL:
+    `https://www.linkedin.com/company/1441/` → ID is `1441`
+  </Tip>
+</ParamField>
+
+## Salary & Compensation
+
+<ParamField path="enforce_annual_salary" type="boolean" default="false">
+  Convert all salary figures to annual equivalents.
+  
+  - Hourly rates are multiplied by 2,080 (40 hours/week × 52 weeks)
+  - Monthly salaries are multiplied by 12
+  - Weekly salaries are multiplied by 52
+  - Daily salaries are multiplied by 260
+  
+  ```typescript
+  enforce_annual_salary: true
+  ```
+</ParamField>
+
+## Pagination
+
+<ParamField path="offset" type="number" default="0">
+  Skip the first N results (pagination offset).
+  
+  ```typescript
+  // First page
+  const page1 = await scrapeJobs({
+    site_name: "indeed",
+    search_term: "nurse",
+    results_wanted: 20,
+    offset: 0,
+  });
+  
+  // Second page
+  const page2 = await scrapeJobs({
+    site_name: "indeed",
+    search_term: "nurse",
+    results_wanted: 20,
+    offset: 20,
+  });
+  ```
+</ParamField>
+
+## Deduplication & Profiles
+
+<ParamField path="profile" type="string">
+  Named profile for deduplication tracking. When specified, JobSpy tracks which jobs you've already seen and filters them out on subsequent runs.
+  
+  ```typescript
+  profile: "frontend-jobs"
+  ```
+  
+  <Note>
+    See the [Profiles & Deduplication](/cli/config-profiles) guide for details on how state tracking works.
+  </Note>
+</ParamField>
+
+<ParamField path="state_file" type="string">
+  Path to state file for deduplication. Defaults to `jobspy.json` in the current directory.
+  
+  ```typescript
+  state_file: "/path/to/my-state.json"
+  ```
+</ParamField>
+
+<ParamField path="skip_dedup" type="boolean" default="false">
+  Skip deduplication filtering (state is still updated).
+  
+  ```typescript
+  skip_dedup: true  // Return all jobs, but still update state
+  ```
+</ParamField>
+
+## Output & Logging
+
+<ParamField path="verbose" type="number" default="0">
+  Logging verbosity level.
+  
+  - `0` — Errors only
+  - `1` — Warnings and errors
+  - `2` — All logs (info, warnings, errors)
+  
+  ```typescript
+  verbose: 2  // Enable debug logging
+  ```
+</ParamField>
+
+## Return Value
+
+The function returns a `ScrapeJobsResult` object:
+
+```typescript
+interface ScrapeJobsResult {
+  jobs: FlatJobRecord[];
+  totalScraped: number;
+  newCount: number;
+  profile?: {
+    name: string;
+    lastRunAt: string | null;
+    stateFile: string;
+  };
+}
+```
+
+**Fields:**
+
+- `jobs` — Array of job postings (see [Job Fields](#job-fields) below)
+- `totalScraped` — Total number of jobs scraped before deduplication
+- `newCount` — Number of new jobs after deduplication (same as `jobs.length` when using profiles)
+- `profile` — Profile metadata (only present when using `profile` parameter)
+
+### Job Fields
+
+Each job in the `jobs` array is a `FlatJobRecord` with these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique job ID with site prefix (e.g. `"li-123"`, `"in-abc"`) |
+| `site` | `string` | Source site key (e.g. `"linkedin"`, `"indeed"`) |
+| `title` | `string` | Job title |
+| `company` | `string` | Company name |
+| `location` | `string` | Formatted as `"City, State, Country"` |
+| `job_url` | `string` | Canonical job URL on the board |
+| `job_url_direct` | `string` | Direct employer/ATS URL (if available) |
+| `date_posted` | `string` | ISO date `"YYYY-MM-DD"` |
+| `job_type` | `string` | Comma-separated (e.g. `"fulltime, contract"`) |
+| `is_remote` | `boolean` | Whether the job is remote |
+| `description` | `string` | Full job description (formatted per `description_format`) |
+| `min_amount` | `number` | Minimum salary/pay amount |
+| `max_amount` | `number` | Maximum salary/pay amount |
+| `interval` | `string` | Pay interval: `"yearly"`, `"hourly"`, etc. |
+| `currency` | `string` | Currency code (e.g. `"USD"`, `"EUR"`) |
+| `salary_source` | `string` | `"direct_data"` or `"description"` |
+| `emails` | `string` | Comma-separated emails extracted from description |
+| `job_level` | `string` | Seniority level (LinkedIn only) |
+| `job_function` | `string` | Job function category (LinkedIn only) |
+| `company_industry` | `string` | Industry classification |
+| `company_url` | `string` | Company page on the job board |
+| `company_url_direct` | `string` | Company's own website URL |
+| `company_logo` | `string` | Company logo URL |
+| `listing_type` | `string` | E.g. `"sponsored"` |
+
+<Tip>
+  See the [type definitions](https://github.com/borgius/jobspy-js/blob/master/src/types.ts) for the complete list of available fields.
+</Tip>
+
+## Examples
+
+### Basic Search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const { jobs } = await scrapeJobs({
+  site_name: "indeed",
+  search_term: "software engineer",
+  location: "New York, NY",
+});
+
+console.log(`Found ${jobs.length} jobs`);
+for (const job of jobs) {
+  console.log(`${job.title} at ${job.company}`);
+}
+```
+
+### Multiple Sites
+
+```typescript
+const { jobs } = await scrapeJobs({
+  site_name: ["linkedin", "indeed", "glassdoor"],
+  search_term: "data scientist",
+  location: "San Francisco, CA",
+  results_wanted: 25,
+});
+
+// Group results by site
+const bySite = jobs.reduce((acc, job) => {
+  if (!acc[job.site]) acc[job.site] = [];
+  acc[job.site].push(job);
+  return acc;
+}, {} as Record<string, typeof jobs>);
+
+for (const [site, siteJobs] of Object.entries(bySite)) {
+  console.log(`${site}: ${siteJobs.length} jobs`);
+}
+```
+
+### Remote Jobs with Salary Filter
+
+```typescript
+const { jobs } = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "frontend developer",
+  is_remote: true,
+  enforce_annual_salary: true,
+});
+
+const wellPaid = jobs.filter(
+  (j) => j.min_amount && j.min_amount >= 100000
+);
+console.log(`${wellPaid.length} remote jobs paying $100k+`);
+```
+
+### Recent Jobs Only
+
+```typescript
+// Jobs posted in the last 24 hours
+const { jobs } = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "machine learning engineer",
+  hours_old: 24,
+  description_format: "plain",
+});
+```
+
+### LinkedIn Company Filter
+
+```typescript
+// Only jobs from Google and Microsoft on LinkedIn
+const { jobs } = await scrapeJobs({
+  site_name: "linkedin",
+  search_term: "product manager",
+  linkedin_company_ids: [1441, 1035],
+  linkedin_fetch_description: true,
+});
+```
+
+### With Profile Deduplication
+
+```typescript
+// First run - returns all jobs
+const run1 = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "react developer",
+  location: "Austin, TX",
+  profile: "frontend-jobs",
+});
+console.log(`First run: ${run1.jobs.length} jobs`);
+
+// Second run (hours later) - returns only new jobs
+const run2 = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "react developer",
+  location: "Austin, TX",
+  profile: "frontend-jobs",
+});
+console.log(`Second run: ${run2.jobs.length} new jobs`);
+console.log(`Total scraped: ${run2.totalScraped}`);
+console.log(`Already seen: ${run2.totalScraped - run2.newCount}`);
+```
+
+## Behavior
+
+### Parallel Scraping
+
+All sites are scraped **concurrently** using `Promise.allSettled()`. If one site fails, the others still return results. Failed scrapers are silently skipped.
+
+```typescript
+const { jobs } = await scrapeJobs({
+  site_name: ["linkedin", "indeed", "glassdoor"],
+  search_term: "developer",
+});
+
+// You'll get results from whichever sites succeeded
+if (jobs.length === 0) {
+  console.log("No jobs found from any site");
+}
+```
+
+### Result Sorting
+
+Results are sorted by:
+1. **Site name** (alphabetical)
+2. **Date posted** (newest first, within each site)
+
+### Error Handling
+
+```typescript
+try {
+  const { jobs } = await scrapeJobs({
+    site_name: ["linkedin", "indeed"],
+    search_term: "developer",
+  });
+  
+  if (jobs.length === 0) {
+    console.log("No jobs found - try broadening your search");
+  }
+} catch (err) {
+  // Only throws if all scrapers fail or params are invalid
+  console.error("Scrape failed:", err);
+}
+```
+
+Set `verbose: 2` to see detailed logs for debugging:
+
+```typescript
+const { jobs } = await scrapeJobs({
+  search_term: "developer",
+  verbose: 2,
+});
+```
+
+## See Also
+
+- [Fetching Job Details](/sdk/fetching-job-details) — Fetch full details for a single job
+- [Authentication](/sdk/authentication) — Using credentials for authenticated scraping
+- [Proxies](/sdk/proxies) — Proxy rotation and configuration
+- [Countries](/sdk/countries) — International job search support

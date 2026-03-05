@@ -1,0 +1,373 @@
+---
+title: Deduplication
+description: Track and filter previously seen jobs across profile runs
+---
+
+When using `--profile`, JobSpy automatically tracks which jobs you've already seen. On subsequent runs, only **new jobs** are returned. This eliminates duplicate work and focuses your attention on fresh opportunities.
+
+## How It Works
+
+Deduplication uses two strategies:
+
+1. **URL rolling window** — Job URLs seen within the last **7 days** are filtered out.
+2. **Date watermark** — Jobs with a `date_posted` on or before the last run's most recent date are skipped.
+
+State is stored in the `state` section of `jobspy.json` and updated automatically after each run.
+
+## Enabling Deduplication
+
+Dedup is **automatic** when using `--profile`:
+
+```bash
+jobspy --profile frontend
+```
+
+Without `--profile`, no dedup tracking occurs (every run is independent).
+
+## First Run
+
+The first run of a profile returns all matching jobs and saves state:
+
+```bash
+jobspy --profile frontend
+```
+
+**Output:**
+
+```text
+Found 50 jobs
+  (50 scraped, 50 new since last run — state: /home/user/project/jobspy.json)
+Results written to frontend-jobs.csv
+```
+
+All 50 jobs are new because no prior state exists.
+
+## Subsequent Runs
+
+Run the same profile again hours or days later:
+
+```bash
+jobspy --profile frontend
+```
+
+**Output:**
+
+```text
+Found 8 jobs
+  (50 scraped, 8 new since last run — state: /home/user/project/jobspy.json)
+Results written to frontend-jobs.csv
+```
+
+Of the 50 jobs scraped, 42 were already seen. Only 8 new jobs are returned.
+
+## URL Rolling Window
+
+Every job URL is recorded with a `seenAt` timestamp (ISO date, e.g., `"2026-03-05"`). URLs seen within the last **7 days** are filtered out on the next run.
+
+After 7 days, the URL is pruned from state and can be seen again if it reappears in search results.
+
+**Example state:**
+
+```json
+{
+  "state": {
+    "profiles": {
+      "frontend": {
+        "providers": {
+          "linkedin": {
+            "seenUrls": [
+              { "url": "https://linkedin.com/jobs/view/123", "seenAt": "2026-03-05" },
+              { "url": "https://linkedin.com/jobs/view/456", "seenAt": "2026-03-04" },
+              { "url": "https://linkedin.com/jobs/view/789", "seenAt": "2026-03-03" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+On `2026-03-10`, the entry from `2026-03-03` (7 days old) will be pruned automatically.
+
+## Date Watermark
+
+Each provider tracks the most recent `date_posted` value seen:
+
+```json
+{
+  "state": {
+    "profiles": {
+      "frontend": {
+        "providers": {
+          "linkedin": {
+            "lastSeenDate": "2026-03-05"
+          },
+          "indeed": {
+            "lastSeenDate": "2026-03-04"
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Jobs with `date_posted <= lastSeenDate` are skipped. This catches jobs that reappear in search results with the same URL but an older date.
+
+**Note:** Some sites (e.g., Bayt) do not provide `date_posted`. For these, only the URL rolling window is used.
+
+## Skipping Dedup (--all)
+
+To temporarily bypass dedup filtering while still updating state, use `--all`:
+
+```bash
+jobspy --profile frontend --all
+```
+
+**Output:**
+
+```text
+Found 50 jobs
+  (50 scraped, 50 new since last run — state: /home/user/project/jobspy.json)
+Results written to frontend-jobs.csv
+```
+
+All 50 jobs are returned, but the state is updated with their URLs and dates. The next normal run (without `--all`) will filter them out.
+
+**Use case:** Re-fetch all jobs for a one-time export without losing your dedup history.
+
+## Viewing Profile State
+
+Check when each profile was last run:
+
+```bash
+jobspy --list-profiles
+```
+
+**Output:**
+
+```text
+Profiles in /home/user/project/jobspy.json:
+  frontend             last run: 3/5/2026, 9:15:00 AM  sites: linkedin, indeed  term: react frontend developer
+  backend              last run: 3/4/2026, 2:30:00 PM  sites: linkedin, indeed  term: node.js backend engineer
+  devops               last run: never  sites: linkedin  term: devops engineer
+```
+
+## State File Structure
+
+The `state` section of `jobspy.json` stores per-profile, per-provider dedup data:
+
+```json
+{
+  "config": { /* ... */ },
+  "state": {
+    "version": 1,
+    "profiles": {
+      "frontend": {
+        "lastRunAt": "2026-03-05T15:30:00.000Z",
+        "providers": {
+          "linkedin": {
+            "lastSeenDate": "2026-03-05",
+            "seenUrls": [
+              { "url": "https://linkedin.com/jobs/view/123", "seenAt": "2026-03-05" },
+              { "url": "https://linkedin.com/jobs/view/456", "seenAt": "2026-03-04" }
+            ]
+          },
+          "indeed": {
+            "lastSeenDate": "2026-03-04",
+            "seenUrls": []
+          }
+        }
+      },
+      "backend": {
+        "lastRunAt": "2026-03-04T20:00:00.000Z",
+        "providers": { /* ... */ }
+      }
+    }
+  }
+}
+```
+
+### State Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `version` | `number` | State format version (currently `1`) |
+| `profiles` | `object` | Map of profile names to profile state |
+| `lastRunAt` | `string` (ISO timestamp) | When the profile was last executed |
+| `providers` | `object` | Map of site names to provider state |
+| `lastSeenDate` | `string` (ISO date) | Most recent `date_posted` from last run |
+| `seenUrls` | `array` | List of `{ url, seenAt }` objects within the 7-day window |
+
+## Ad-Hoc Profiles
+
+You don't need a config entry in `jobspy.json` to use dedup. Running `--profile` with any name creates state tracking:
+
+```bash
+jobspy --profile my-search -s linkedin -q "rust developer" -n 20
+```
+
+This creates a `my-search` profile in the `state` section, even though there's no matching entry in `config.profiles`.
+
+Subsequent runs will use the saved state:
+
+```bash
+jobspy --profile my-search -s linkedin -q "rust developer" -n 20
+# Only returns new jobs since last run
+```
+
+## State Pruning
+
+URLs older than 7 days are automatically removed from `seenUrls` on each run. This keeps the state file size manageable.
+
+If a job URL is pruned and reappears in search results 8+ days later, it will be treated as new.
+
+## When Dedup Doesn't Apply
+
+Dedup is **not active** when:
+
+- Running without `--profile`
+- Using `--describe` or `--id` (single job fetching)
+- Using `--init` or `--list-profiles` (utility commands)
+
+## Example: Daily Job Scraping
+
+**Setup:**
+
+```bash
+jobspy --init
+```
+
+Edit `jobspy.json`:
+
+```json
+{
+  "config": {
+    "profiles": {
+      "daily-frontend": {
+        "site": ["linkedin", "indeed", "glassdoor"],
+        "search_term": "react developer",
+        "location": "San Francisco, CA",
+        "hours_old": 24,
+        "results": 100,
+        "output": "daily-jobs.csv"
+      }
+    }
+  }
+}
+```
+
+**Run daily:**
+
+```bash
+jobspy --profile daily-frontend
+```
+
+**Day 1 output:**
+
+```text
+Found 85 jobs
+  (100 scraped, 85 new since last run — state: /home/user/project/jobspy.json)
+Results written to daily-jobs.csv
+```
+
+**Day 2 output:**
+
+```text
+Found 12 jobs
+  (100 scraped, 12 new since last run — state: /home/user/project/jobspy.json)
+Results written to daily-jobs.csv
+```
+
+Only 12 new jobs posted since yesterday are returned.
+
+**Day 3 output:**
+
+```text
+Found 9 jobs
+  (100 scraped, 9 new since last run — state: /home/user/project/jobspy.json)
+Results written to daily-jobs.csv
+```
+
+## Resetting State
+
+To clear dedup history for a profile, delete its entry from the `state.profiles` object in `jobspy.json`:
+
+**Before:**
+
+```json
+{
+  "state": {
+    "profiles": {
+      "frontend": { /* ... */ },
+      "backend": { /* ... */ }
+    }
+  }
+}
+```
+
+**After (frontend reset):**
+
+```json
+{
+  "state": {
+    "profiles": {
+      "backend": { /* ... */ }
+    }
+  }
+}
+```
+
+The next run of `--profile frontend` will treat all jobs as new.
+
+Alternatively, create a new profile with a different name:
+
+```bash
+jobspy --profile frontend-v2 -s linkedin -q "react" -n 50
+```
+
+## Dedup Accuracy
+
+Dedup is based on:
+
+- **Exact URL matching** — `https://linkedin.com/jobs/view/123` vs `https://linkedin.com/jobs/view/456`
+- **Date comparison** — `2026-03-05` vs `2026-03-04`
+
+URLs with query parameters (e.g., `?utm_source=...`) are stored as-is. Minor URL variations may cause duplicates.
+
+**Limitation:** Jobs that change URLs (e.g., reposted with a new ID) will be treated as new.
+
+## Multi-Site Dedup
+
+Each provider (site) maintains its own state. A job seen on LinkedIn does not prevent the same job from appearing in Indeed results:
+
+```bash
+jobspy --profile fullstack -s linkedin indeed -q "full stack developer" -n 50
+```
+
+If the same job appears on both LinkedIn and Indeed with different URLs, both will be returned (unless `job_url` is identical).
+
+## Dedup and `--offset`
+
+Using `--offset` for pagination does not affect dedup. Jobs are filtered **after** scraping, so offset only controls which page of results to fetch.
+
+**Example:**
+
+```bash
+jobspy --profile backend -s linkedin -q "engineer" -n 50 --offset 0   # First 50
+jobspy --profile backend -s linkedin -q "engineer" -n 50 --offset 50  # Next 50
+```
+
+Each run updates state. The second run may return fewer than 50 jobs if some were already seen in the first batch.
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Config Profiles" icon="file-code" href="/cli/config-profiles">
+    Define reusable search profiles with jobspy.json
+  </Card>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Complete CLI flag reference
+  </Card>
+</CardGroup>

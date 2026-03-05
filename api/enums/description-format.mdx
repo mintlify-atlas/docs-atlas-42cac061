@@ -1,0 +1,309 @@
+---
+title: DescriptionFormat
+description: Output format options for job description text
+---
+
+The `DescriptionFormat` enum specifies the desired output format for job descriptions returned by JobSpy. Different formats are useful for different use cases, from direct rendering to text analysis.
+
+## Enum Values
+
+### `MARKDOWN`
+
+**Value:** `"markdown"`
+
+Returns job descriptions formatted in Markdown.
+
+- Clean, readable format with preserved structure
+- Easy to render in documentation and web applications
+- Preserves headings, lists, and basic formatting
+- Ideal for storing in content management systems
+- Can be easily converted to other formats
+
+**Best for:** Documentation sites, CMSs, formatted displays, GitHub READMEs
+
+### `HTML`
+
+**Value:** `"html"`
+
+Returns job descriptions as HTML markup.
+
+- Rich formatting with full styling preserved
+- Includes tags like `<p>`, `<ul>`, `<strong>`, `<a>`, etc.
+- Ready for direct rendering in web browsers
+- May include inline styles and classes
+- Most detailed formatting option
+
+**Best for:** Web applications, email templates, rich text displays
+
+### `PLAIN`
+
+**Value:** `"plain"`
+
+Returns job descriptions as plain text with no formatting.
+
+- All HTML tags and markdown syntax removed
+- Simple, clean text content
+- Whitespace normalized
+- Ideal for text analysis and search indexing
+- Smallest data size
+
+**Best for:** Text analysis, search engines, AI processing, SMS/notifications
+
+## Usage Examples
+
+### Setting Format in scrapeJobs()
+
+```typescript
+import { scrapeJobs, Site, DescriptionFormat } from 'jobspy-js';
+
+// Get descriptions in Markdown format
+const markdownResults = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'product designer',
+  location: 'San Francisco, CA',
+  description_format: DescriptionFormat.MARKDOWN,
+  results_wanted: 20
+});
+
+for (const job of markdownResults.jobs) {
+  console.log(job.title);
+  console.log(job.description); // Markdown-formatted text
+}
+```
+
+### String Alternative
+
+```typescript
+// You can also pass format as a string
+const results = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'data scientist',
+  description_format: 'html', // equivalent to DescriptionFormat.HTML
+  results_wanted: 30
+});
+```
+
+### Format Comparison
+
+```typescript
+import { scrapeJobs, Site, DescriptionFormat } from 'jobspy-js';
+
+// Fetch the same jobs in different formats
+const searchParams = {
+  site_name: Site.GLASSDOOR,
+  search_term: 'software engineer',
+  location: 'Seattle, WA',
+  results_wanted: 10
+};
+
+const htmlResults = await scrapeJobs({
+  ...searchParams,
+  description_format: DescriptionFormat.HTML
+});
+
+const markdownResults = await scrapeJobs({
+  ...searchParams,
+  description_format: DescriptionFormat.MARKDOWN
+});
+
+const plainResults = await scrapeJobs({
+  ...searchParams,
+  description_format: DescriptionFormat.PLAIN
+});
+
+console.log('HTML:', htmlResults.jobs[0].description);
+console.log('Markdown:', markdownResults.jobs[0].description);
+console.log('Plain:', plainResults.jobs[0].description);
+```
+
+### Format-Specific Processing
+
+#### HTML Format - Direct Rendering
+
+```typescript
+import { scrapeJobs, DescriptionFormat } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'frontend developer',
+  description_format: DescriptionFormat.HTML,
+  results_wanted: 50
+});
+
+// Render directly in a web page
+for (const job of results.jobs) {
+  document.getElementById('job-list').innerHTML += `
+    <div class="job-card">
+      <h2>${job.title}</h2>
+      <h3>${job.company_name}</h3>
+      <div class="job-description">
+        ${job.description} <!-- HTML content rendered directly -->
+      </div>
+    </div>
+  `;
+}
+```
+
+#### Markdown Format - Convert to HTML
+
+```typescript
+import { scrapeJobs, DescriptionFormat } from 'jobspy-js';
+import { marked } from 'marked'; // npm install marked
+
+const results = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'devops engineer',
+  description_format: DescriptionFormat.MARKDOWN,
+  results_wanted: 25
+});
+
+// Convert markdown to HTML for rendering
+for (const job of results.jobs) {
+  const htmlDescription = marked(job.description || '');
+  console.log(htmlDescription);
+}
+```
+
+#### Plain Format - Text Analysis
+
+```typescript
+import { scrapeJobs, DescriptionFormat } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'machine learning',
+  description_format: DescriptionFormat.PLAIN,
+  results_wanted: 100
+});
+
+// Analyze plain text for keywords
+function analyzeSkills(description: string): string[] {
+  const skills = ['Python', 'TensorFlow', 'PyTorch', 'scikit-learn', 'AWS', 'Docker'];
+  return skills.filter(skill => 
+    description.toLowerCase().includes(skill.toLowerCase())
+  );
+}
+
+for (const job of results.jobs) {
+  const requiredSkills = analyzeSkills(job.description || '');
+  console.log(`${job.title}: ${requiredSkills.join(', ')}`);
+}
+```
+
+### Format for Different Use Cases
+
+```typescript
+import { scrapeJobs, DescriptionFormat } from 'jobspy-js';
+
+// For a job board website (HTML)
+const webJobs = await scrapeJobs({
+  site_name: Site.INDEED,
+  search_term: 'nurse',
+  description_format: DescriptionFormat.HTML,
+  results_wanted: 50
+});
+
+// For a documentation site (Markdown)
+const docJobs = await scrapeJobs({
+  site_name: Site.GLASSDOOR,
+  search_term: 'technical writer',
+  description_format: DescriptionFormat.MARKDOWN,
+  results_wanted: 30
+});
+
+// For AI/ML processing (Plain)
+const aiJobs = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'analyst',
+  description_format: DescriptionFormat.PLAIN,
+  results_wanted: 200
+});
+
+// Feed plain text to AI model
+const embeddings = await generateEmbeddings(aiJobs.jobs.map(j => j.description));
+```
+
+### Fetching Individual Jobs
+
+```typescript
+import { fetchLinkedInJob, DescriptionFormat } from 'jobspy-js';
+
+// Fetch a single LinkedIn job in different formats
+const jobId = '3823456789';
+
+const htmlJob = await fetchLinkedInJob(jobId, DescriptionFormat.HTML);
+const markdownJob = await fetchLinkedInJob(jobId, DescriptionFormat.MARKDOWN);
+const plainJob = await fetchLinkedInJob(jobId, DescriptionFormat.PLAIN);
+
+console.log('Same job, different formats:');
+console.log('HTML length:', htmlJob.description?.length);
+console.log('Markdown length:', markdownJob.description?.length);
+console.log('Plain length:', plainJob.description?.length);
+// Plain will typically be shortest, HTML longest
+```
+
+## Format Characteristics
+
+### Size Comparison
+
+Typical relative sizes for the same description:
+
+```
+HTML:     ~4,500 bytes  (largest - includes tags, attributes, styling)
+Markdown: ~3,200 bytes  (medium - includes markdown syntax)
+Plain:    ~2,800 bytes  (smallest - text only)
+```
+
+### Formatting Preservation
+
+| Feature | HTML | Markdown | Plain |
+|---------|------|----------|-------|
+| Headings | ✅ `<h1>`, `<h2>` | ✅ `#`, `##` | ❌ Lost |
+| Bold/Italic | ✅ `<strong>`, `<em>` | ✅ `**bold**`, `*italic*` | ❌ Lost |
+| Links | ✅ `<a href>` | ✅ `[text](url)` | ⚠️ URL text only |
+| Lists | ✅ `<ul>`, `<ol>` | ✅ `-`, `1.` | ⚠️ Basic structure |
+| Line breaks | ✅ `<br>`, `<p>` | ✅ Double newline | ✅ Preserved |
+| Tables | ✅ `<table>` | ✅ Pipe syntax | ❌ Lost |
+| Styling | ✅ Colors, fonts | ❌ Not supported | ❌ Not supported |
+
+### Processing Speed
+
+Relative processing times:
+
+```
+Plain:    Fastest  (minimal processing)
+Markdown: Medium   (HTML to Markdown conversion)
+HTML:     Slowest  (full HTML parsing, may include cleanup)
+```
+
+## Default Behavior
+
+If `description_format` is not specified:
+
+```typescript
+const results = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'engineer'
+  // description_format not specified
+});
+
+// Default format depends on the scraper implementation
+// Check the returned description to determine format
+```
+
+## Type Definition
+
+```typescript
+enum DescriptionFormat {
+  MARKDOWN = "markdown",
+  HTML = "html",
+  PLAIN = "plain",
+}
+```
+
+## Related
+
+- [JobPost](/api/types/job-post) - Interface that includes description field
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - Parameters including description_format option
+- [scrapeJobs()](/api/scrape-jobs) - Main function that accepts description_format
+- [fetchLinkedInJob()](/api/fetch-linkedin-job) - Accepts format parameter for single jobs

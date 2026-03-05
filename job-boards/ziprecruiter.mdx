@@ -1,0 +1,342 @@
+---
+title: ZipRecruiter
+description: Scrape job postings from ZipRecruiter using embedded JSON data extraction
+---
+
+## Overview
+
+ZipRecruiter is a major job board that aggregates listings from company sites and partners. JobSpy JS scrapes ZipRecruiter using **web scraping** of embedded JSON data in the search result pages.
+
+## Scraping Method
+
+**Web scraping** of `https://www.ziprecruiter.com/candidate/search`
+
+- Fetches search result pages via HTTP
+- Parses embedded JSON from `<script type="application/json">` tags
+- Extracts job cards and detailed job data
+- Supports pagination (20 jobs per page)
+- Fast and reliable (no browser automation)
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 40,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  
+  if (job.compensation) {
+    const { min_amount, max_amount, interval } = job.compensation;
+    console.log(`Salary: $${min_amount}-${max_amount}/${interval}`);
+  }
+  
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Remote jobs search
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "product manager",
+  is_remote: true,
+  results_wanted: 30,
+});
+```
+
+### Recent postings with salary filter
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "data analyst",
+  location: "Chicago, IL",
+  hours_old: 72,  // Last 3 days
+  results_wanted: 50,
+});
+
+// Filter for jobs with salary information
+const jobsWithSalary = result.jobs.filter(job => job.compensation?.min_amount);
+console.log(`${jobsWithSalary.length} jobs include salary data`);
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by ZipRecruiter listing key
+const job = await fetchJobDetails("zip_recruiter", "abc123def456");
+
+console.log(job.title);
+console.log(job.company_name);
+console.log(job.description);  // Full job description
+console.log(job.job_url_direct);  // Direct application URL
+```
+
+### Filter by job type
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "marketing manager",
+  location: "New York, NY",
+  job_type: "fulltime",
+  results_wanted: 25,
+});
+```
+
+### Search with distance radius
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "nurse",
+  location: "Austin, TX",
+  distance: 25,  // Within 25 miles
+  results_wanted: 30,
+});
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City, state, or ZIP code |
+| `distance` | ✅ | Radius in miles (default: 50) |
+| `is_remote` | ✅ | Remote-only filter |
+| `hours_old` | ✅ | Filter by posting age (converted to days) |
+| `job_type` | ❌ | Not supported by ZipRecruiter search API |
+| `easy_apply` | ❌ | Not supported |
+
+## Returned Fields
+
+ZipRecruiter returns comprehensive job data:
+
+### Core fields
+- `id`, `title`, `company_name`, `location`, `job_url`, `date_posted`
+
+### Compensation
+- `compensation.interval` (hourly, daily, weekly, monthly, yearly)
+- `compensation.min_amount`, `compensation.max_amount`
+- `compensation.currency` (always "USD")
+
+<Note>
+  ZipRecruiter often includes estimated salary ranges even when not explicitly stated by employers.
+</Note>
+
+### Job metadata
+- `description` (short description from job card; full description when fetching a single job)
+- `job_type` (extracted from `employmentTypes` field: fulltime, parttime, contract, internship, temporary)
+- `job_url_direct` (direct application URL, bypasses ZipRecruiter)
+- `emails` (extracted from description)
+
+### Location details
+- `location.city`, `location.state`, `location.country`
+
+## Rate Limits & Best Practices
+
+### Moderate request rates
+
+ZipRecruiter includes built-in 2-second delays between pages. For best results:
+
+```typescript
+// ✅ Good: Moderate batch size
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "engineer",
+  results_wanted: 100,  // 5 pages, ~10 seconds
+});
+
+// ⚠️ Slow: Many pages
+const result2 = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "developer",
+  results_wanted: 500,  // 25 pages, ~50 seconds
+});
+```
+
+### Use proxies for high-volume scraping
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "data scientist",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 200,
+});
+```
+
+### Pagination
+
+ZipRecruiter returns 20 jobs per page. JobSpy automatically handles pagination:
+
+```typescript
+// Fetches 5 pages (20 jobs each)
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "software engineer",
+  results_wanted: 100,
+});
+```
+
+## Troubleshooting
+
+### No JSON data found
+
+**Symptom:** "No JSON data found in ZipRecruiter page"
+
+**Cause:** Page structure changed or request was blocked
+
+**Solutions:**
+1. Check for updates to `jobspy-js`
+2. Try using a proxy
+3. Verify the search parameters are valid
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Causes:**
+1. No jobs match your search criteria
+2. Location not recognized
+
+**Solutions:**
+1. Use broader search terms
+2. Try a different location or remove location filter
+3. Remove restrictive filters (e.g., `hours_old`, `distance`)
+
+### Missing salary data
+
+**Symptom:** `compensation` is `undefined` for many jobs
+
+**Note:** Salary data availability depends on employers. ZipRecruiter provides estimated ranges when possible, but not all jobs will have salary information.
+
+### Short descriptions
+
+**Symptom:** `description` field is very brief
+
+**Note:** Search results include only short descriptions. For full details:
+1. Visit the `job_url`, or
+2. Use `fetchJobDetails()` to fetch a single job:
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("zip_recruiter", "listing-key-here");
+console.log(job.description);  // Full description
+```
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s zip_recruiter -q "software engineer" -l "Seattle, WA" -n 40
+
+# Remote jobs only
+jobspy -s zip_recruiter -q "frontend developer" -r -n 30
+
+# Within 25 miles of location
+jobspy -s zip_recruiter -q "nurse" -l "Austin, TX" -d 25 -n 50
+
+# Recent postings (last 24 hours)
+jobspy -s zip_recruiter -q "marketing manager" --hours-old 24 -n 20
+
+# Export to CSV
+jobspy -s zip_recruiter -q "data analyst" -l "Chicago, IL" -n 100 -o jobs.csv
+
+# Fetch single job by listing key
+jobspy -s zip_recruiter --id abc123def456
+```
+
+## Use Cases
+
+### Find jobs with salary transparency
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 100,
+});
+
+const withSalary = result.jobs.filter(job => 
+  job.compensation?.min_amount && job.compensation?.max_amount
+);
+
+console.log(`${withSalary.length}/${result.jobs.length} jobs include salary ranges`);
+
+// Sort by max salary
+withSalary.sort((a, b) => 
+  (b.compensation!.max_amount ?? 0) - (a.compensation!.max_amount ?? 0)
+);
+
+console.log("\nTop 10 highest-paying jobs:");
+for (const job of withSalary.slice(0, 10)) {
+  const { min_amount, max_amount, interval } = job.compensation!;
+  console.log(`${job.title}: $${min_amount}-${max_amount}/${interval}`);
+}
+```
+
+### Monitor new postings
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "product manager",
+  location: "New York, NY",
+  hours_old: 24,  // Last 24 hours only
+  results_wanted: 50,
+});
+
+console.log(`${result.jobs.length} new jobs posted today`);
+```
+
+### Compare employment types
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["zip_recruiter"],
+  search_term: "engineer",
+  results_wanted: 200,
+});
+
+const byType: Record<string, number> = {};
+for (const job of result.jobs) {
+  const types = job.job_type ?? ["unknown"];
+  for (const type of types) {
+    byType[type] = (byType[type] ?? 0) + 1;
+  }
+}
+
+console.log("Jobs by employment type:");
+for (const [type, count] of Object.entries(byType)) {
+  console.log(`${type}: ${count} jobs`);
+}
+```
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/ziprecruiter/index.ts`
+- Key: `zip_recruiter`
+- Site enum: `Site.ZIP_RECRUITER`

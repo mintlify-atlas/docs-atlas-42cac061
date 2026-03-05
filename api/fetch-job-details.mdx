@@ -1,0 +1,333 @@
+---
+title: fetchJobDetails()
+description: Fetch full details for a job by ID on any supported provider
+---
+
+## Overview
+
+Fetch full details for a single job by ID on **any** supported provider. This is a universal alternative to [fetchLinkedInJob()](/api/fetch-linkedin-job) that works across all scrapers.
+
+Use this when you have a job ID from search results and need to fetch the complete job details including full description.
+
+## Signature
+
+```typescript
+async function fetchJobDetails(
+  site: string,
+  jobId: string,
+  options?: {
+    format?: string;
+    proxies?: string | string[];
+    country?: string;
+    credentials?: ProviderCredentials;
+    useCreds?: boolean;
+  }
+): Promise<FlatJobRecord | null>
+```
+
+## Parameters
+
+<ParamField path="site" type="string" required>
+  Site name. Supported values:
+  - `"indeed"`
+  - `"linkedin"`
+  - `"glassdoor"`
+  - `"zip_recruiter"`
+  - `"bayt"`
+  - `"naukri"`
+  - `"bdjobs"`
+  
+  Site names are normalized — `"ziprecruiter"`, `"zip_recruiter"`, and `"zip-recruiter"` all work.
+</ParamField>
+
+<ParamField path="jobId" type="string" required>
+  Provider-specific job ID. Format varies by site:
+  
+  | Site | ID Format | Example |
+  |------|-----------|------|
+  | Indeed | Job key | `"fdde406379455a1e"` |
+  | LinkedIn | Numeric ID | `"4127292817"` |
+  | Glassdoor | Listing ID | `"123456789"` |
+  | ZipRecruiter | Listing key | `"some-listing-key"` |
+  | Bayt | Job path | `"/en/job-title-1234567"` |
+  | Naukri | Numeric ID | `"123456789"` |
+  | BDJobs | Numeric ID | `"123456"` |
+</ParamField>
+
+<ParamField path="options" type="object">
+  Optional configuration object
+</ParamField>
+
+<ParamField path="options.format" type="string" default="markdown">
+  Description format:
+  - `"markdown"` — converts HTML to Markdown (default)
+  - `"html"` — preserves original HTML
+  - `"plain"` — strips all markup
+</ParamField>
+
+<ParamField path="options.proxies" type="string | string[]">
+  Proxy server(s) for the request. Accepts formats:
+  - `"host:port"`
+  - `"user:pass@host:port"`
+  - `"http://host:port"`
+  - `"socks5://host:port"`
+  
+  Multiple proxies rotate round-robin.
+</ParamField>
+
+<ParamField path="options.country" type="string" default="usa">
+  Country code for Indeed/Glassdoor. See [Country Support](/sdk/countries) for valid values.
+</ParamField>
+
+<ParamField path="options.credentials" type="ProviderCredentials">
+  Pre-built credentials object for authenticated scraping
+</ParamField>
+
+<ParamField path="options.useCreds" type="boolean" default="false">
+  Enable authenticated scraping fallback when anonymous access is blocked
+</ParamField>
+
+## Return Value
+
+Returns a `FlatJobRecord` object (same shape as search results from `scrapeJobs()`), or `null` if the job wasn't found.
+
+<ResponseField name="id" type="string">
+  Unique job ID with site prefix (e.g. `"in-fdde406379455a1e"`)
+</ResponseField>
+
+<ResponseField name="site" type="string">
+  Source site key (e.g. `"indeed"`, `"linkedin"`)
+</ResponseField>
+
+<ResponseField name="job_url" type="string">
+  Canonical job URL on the board
+</ResponseField>
+
+<ResponseField name="job_url_direct" type="string">
+  Direct employer/ATS URL (if available)
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  Job title
+</ResponseField>
+
+<ResponseField name="company" type="string">
+  Company name
+</ResponseField>
+
+<ResponseField name="location" type="string">
+  Formatted as `"City, State, Country"`
+</ResponseField>
+
+<ResponseField name="date_posted" type="string">
+  ISO date `"YYYY-MM-DD"`
+</ResponseField>
+
+<ResponseField name="job_type" type="string">
+  Comma-separated employment types (e.g. `"fulltime, contract"`)
+</ResponseField>
+
+<ResponseField name="description" type="string">
+  Full job description, formatted according to the `format` option
+</ResponseField>
+
+<ResponseField name="salary_source" type="string">
+  How salary was obtained: `"direct_data"` or `"description"`
+</ResponseField>
+
+<ResponseField name="interval" type="string">
+  Pay interval: `"yearly"`, `"monthly"`, `"weekly"`, `"daily"`, or `"hourly"`
+</ResponseField>
+
+<ResponseField name="min_amount" type="number">
+  Minimum salary/pay amount
+</ResponseField>
+
+<ResponseField name="max_amount" type="number">
+  Maximum salary/pay amount
+</ResponseField>
+
+<ResponseField name="currency" type="string">
+  Currency code (e.g. `"USD"`, `"EUR"`)
+</ResponseField>
+
+<ResponseField name="is_remote" type="boolean">
+  Whether the job is remote
+</ResponseField>
+
+<ResponseField name="job_level" type="string">
+  Seniority level (LinkedIn only)
+</ResponseField>
+
+<ResponseField name="job_function" type="string">
+  Job function category (LinkedIn only)
+</ResponseField>
+
+<ResponseField name="company_industry" type="string">
+  Industry classification (LinkedIn, Indeed)
+</ResponseField>
+
+<ResponseField name="company_logo" type="string">
+  Company logo URL (Indeed, Naukri)
+</ResponseField>
+
+<ResponseField name="company_url" type="string">
+  Company page on the job board (LinkedIn, Glassdoor)
+</ResponseField>
+
+<ResponseField name="company_url_direct" type="string">
+  Company's own website URL (LinkedIn, Indeed)
+</ResponseField>
+
+_...and all other fields from [FlatJobRecord](/api/scrape-jobs#flatjobrecord-fields)_
+
+## Examples
+
+### Fetch Indeed Job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+const job = await fetchJobDetails("indeed", "fdde406379455a1e");
+
+if (job) {
+  console.log(job.title);
+  console.log(job.company);
+  console.log(job.description);
+}
+```
+
+### Fetch LinkedIn Job
+
+```typescript
+const job = await fetchJobDetails("linkedin", "4127292817");
+
+if (job) {
+  console.log(job.job_level);        // "mid-senior level"
+  console.log(job.company_industry); // "Software Development"
+}
+```
+
+### Fetch Glassdoor Job with HTML Format
+
+```typescript
+const job = await fetchJobDetails("glassdoor", "123456789", {
+  format: "html",
+  country: "uk",
+});
+
+if (job) {
+  // Description will be in HTML format
+  console.log(job.description);
+}
+```
+
+### Fetch ZipRecruiter Job with Proxy
+
+```typescript
+const job = await fetchJobDetails("zip_recruiter", "listing-key", {
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+### Fetch from Search Results
+
+```typescript
+import { scrapeJobs, fetchJobDetails } from "jobspy-js";
+
+// First, search for jobs
+const searchResult = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 5,
+});
+
+// Then fetch full details for each job
+for (const job of searchResult.jobs) {
+  // Extract ID from the job record
+  const jobId = job.id?.split("-")[1]; // Remove site prefix
+  
+  if (jobId) {
+    const details = await fetchJobDetails(job.site, jobId);
+    
+    if (details) {
+      console.log(`${details.title} - ${details.description?.slice(0, 100)}...`);
+    }
+  }
+}
+```
+
+### Handle Missing Jobs
+
+```typescript
+const job = await fetchJobDetails("indeed", "invalid-id");
+
+if (!job) {
+  console.log("Job not found or no longer available");
+} else {
+  console.log(job.title);
+}
+```
+
+### Fetch Multiple Jobs Concurrently
+
+```typescript
+const jobIds = [
+  { site: "indeed", id: "fdde406379455a1e" },
+  { site: "linkedin", id: "4127292817" },
+  { site: "glassdoor", id: "123456789" },
+];
+
+const jobs = await Promise.all(
+  jobIds.map(({ site, id }) => fetchJobDetails(site, id))
+);
+
+const validJobs = jobs.filter((j) => j !== null);
+console.log(`Fetched ${validJobs.length} out of ${jobIds.length} jobs`);
+```
+
+## Error Handling
+
+```typescript
+try {
+  const job = await fetchJobDetails("indeed", "fdde406379455a1e");
+  
+  if (!job) {
+    console.log("Job not found");
+  } else {
+    console.log(job.description);
+  }
+} catch (err) {
+  // Throws on invalid site name or network errors
+  console.error("Failed to fetch job:", err);
+}
+```
+
+## Supported Sites
+
+| Site | Supported | Notes |
+|------|-----------|-------|
+| Indeed | ✅ | Fetches full description from job page |
+| LinkedIn | ✅ | Uses existing LinkedIn detail fetcher |
+| Glassdoor | ✅ | Requires CSRF token initialization |
+| ZipRecruiter | ✅ | Parses full HTML description |
+| Bayt | ✅ | Scrapes job detail page |
+| Naukri | ✅ | Uses REST API |
+| BDJobs | ✅ | Extracts from detail page |
+| Google | ❌ | Not supported (returns error) |
+| Google Careers | ❌ | Not supported (returns error) |
+
+## Notes
+
+- Returns `null` if the job doesn't exist or is no longer available
+- Each call initializes a new scraper session which is automatically closed after fetching
+- For bulk operations, consider using `scrapeJobs()` with `linkedin_fetch_description: true` or `indeed_fetch_description: true`
+- The returned record is flattened (same format as `scrapeJobs()` results)
+- Job IDs should be taken from search results or provider URLs
+
+## Related
+
+- [scrapeJobs()](/api/scrape-jobs) - Search and scrape multiple job boards
+- [fetchLinkedInJob()](/api/fetch-linkedin-job) - LinkedIn-specific detail fetcher
+- [Types Reference](/api/types/scrape-jobs-params) - Full type definitions

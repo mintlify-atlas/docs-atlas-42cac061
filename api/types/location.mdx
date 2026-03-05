@@ -1,0 +1,224 @@
+---
+title: Location
+description: Geographic location information for job postings
+---
+
+## Overview
+
+The `Location` interface represents the geographic location of a job posting. It provides structured access to city, state, and country information.
+
+## Interface Definition
+
+```typescript
+export interface Location {
+  city?: string;
+  state?: string;
+  country?: string;
+}
+```
+
+## Fields
+
+<ResponseField name="city" type="string" optional>
+  City name (e.g., `"San Francisco"`, `"New York"`, `"London"`)
+</ResponseField>
+
+<ResponseField name="state" type="string" optional>
+  State, province, or region (e.g., `"CA"`, `"New York"`, `"England"`)
+</ResponseField>
+
+<ResponseField name="country" type="string" optional>
+  Country name or code (e.g., `"USA"`, `"United Kingdom"`, `"Canada"`)
+</ResponseField>
+
+## Example Usage
+
+### Basic Access
+
+```typescript
+import { scrapeJobs, JobPost } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'software engineer',
+  location: 'San Francisco, CA'
+});
+
+response.jobs.forEach((job: JobPost) => {
+  if (job.location) {
+    console.log(`Location: ${job.location.city}, ${job.location.state}`);
+    console.log(`Country: ${job.location.country}`);
+  }
+});
+```
+
+### Filtering by Location
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed'],
+  search_term: 'data scientist',
+  results_wanted: 100
+});
+
+// Filter for jobs in California
+const californiaJobs = response.jobs.filter(
+  (job) => job.location?.state === 'CA'
+);
+
+console.log(`Found ${californiaJobs.length} jobs in California`);
+
+// Filter for jobs in specific cities
+const techHubJobs = response.jobs.filter((job) =>
+  ['San Francisco', 'Seattle', 'Austin', 'New York'].includes(
+    job.location?.city || ''
+  )
+);
+
+console.log(`Found ${techHubJobs.length} jobs in tech hubs`);
+```
+
+### Grouping by Location
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'product manager',
+  results_wanted: 50
+});
+
+// Group jobs by city
+const jobsByCity = response.jobs.reduce((acc, job) => {
+  const city = job.location?.city || 'Unknown';
+  if (!acc[city]) acc[city] = [];
+  acc[city].push(job);
+  return acc;
+}, {} as Record<string, typeof response.jobs>);
+
+// Display cities with most jobs
+const sortedCities = Object.entries(jobsByCity)
+  .sort(([, a], [, b]) => b.length - a.length)
+  .slice(0, 10);
+
+console.log('Top 10 cities by job count:');
+sortedCities.forEach(([city, jobs]) => {
+  console.log(`  ${city}: ${jobs.length} jobs`);
+});
+```
+
+### Formatting Location
+
+```typescript
+import { displayLocation, Location } from 'jobspy-js';
+
+function formatLocation(location?: Location): string {
+  if (!location) return 'Location not specified';
+  
+  const parts: string[] = [];
+  if (location.city) parts.push(location.city);
+  if (location.state) parts.push(location.state);
+  if (location.country) parts.push(location.country);
+  
+  return parts.length > 0 ? parts.join(', ') : 'Location not specified';
+}
+
+// Or use the built-in helper
+import { scrapeJobs, displayLocation } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'linkedin',
+  search_term: 'developer'
+});
+
+response.jobs.forEach((job) => {
+  if (job.location) {
+    console.log(displayLocation(job.location));
+  }
+});
+```
+
+### Handling Remote Positions
+
+```typescript
+import { scrapeJobs, JobPost } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'software engineer',
+  is_remote: true
+});
+
+response.jobs.forEach((job: JobPost) => {
+  if (job.is_remote) {
+    console.log(`${job.title} - Remote`);
+  } else if (job.location) {
+    console.log(
+      `${job.title} - ${job.location.city}, ${job.location.state}`
+    );
+  }
+});
+```
+
+### International Jobs
+
+```typescript
+import { scrapeJobs } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: 'indeed',
+  search_term: 'software engineer',
+  country_indeed: 'uk',
+  results_wanted: 50
+});
+
+// Group by country
+const jobsByCountry = response.jobs.reduce((acc, job) => {
+  const country = job.location?.country || 'Unknown';
+  if (!acc[country]) acc[country] = [];
+  acc[country].push(job);
+  return acc;
+}, {} as Record<string, typeof response.jobs>);
+
+Object.entries(jobsByCountry).forEach(([country, jobs]) => {
+  console.log(`${country}: ${jobs.length} jobs`);
+});
+```
+
+## Helper Function
+
+JobSpy JS exports a `displayLocation()` helper function to format location objects consistently:
+
+```typescript
+import { displayLocation, Location } from 'jobspy-js';
+
+const location: Location = {
+  city: 'San Francisco',
+  state: 'CA',
+  country: 'USA'
+};
+
+console.log(displayLocation(location));
+// Output: "San Francisco, CA, USA"
+```
+
+The helper handles:
+- Missing fields (only displays available data)
+- Special country formatting (USA, UK in uppercase)
+- Proper comma separation
+
+## Notes
+
+- All fields are optional. The availability of location data depends on the job board and the specific job posting.
+- Remote positions may have a location indicating the company's headquarters or may have an empty location object.
+- State/province formatting varies by country and job board (e.g., "CA" vs "California").
+- Country names may be abbreviated ("USA", "UK") or full names ("United States", "United Kingdom").
+- Some job boards provide more detailed location data than others.
+
+## Related Types
+
+- [JobPost](/api/types/job-post) - Contains location as a field
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - `location` parameter for filtering

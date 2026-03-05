@@ -1,0 +1,429 @@
+---
+title: Config Profiles
+description: Define and manage reusable search profiles with jobspy.json
+---
+
+Config profiles let you define named job searches in a `jobspy.json` file and run them with a single command. Each profile stores all search parameters, eliminating the need to repeat long CLI flags.
+
+## Creating a Config File
+
+Generate a starter `jobspy.json` with sample profiles:
+
+```bash
+jobspy --init
+```
+
+This creates a file in your current directory (or at the repository root if you're in a git repo):
+
+```json
+{
+  "config": {
+    "profiles": {
+      "frontend": {
+        "site": ["linkedin", "indeed", "zip_recruiter", "glassdoor"],
+        "search_term": "react frontend developer",
+        "location": "New York, NY",
+        "distance": 25,
+        "remote": false,
+        "job_type": "fulltime",
+        "results": 50,
+        "country": "usa",
+        "format": "markdown",
+        "linkedin_fetch_description": true,
+        "hours_old": 72,
+        "enforce_annual_salary": true,
+        "verbose": 1,
+        "output": "frontend-jobs.csv"
+      },
+      "backend": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "node.js backend engineer",
+        "location": "New York, NY",
+        "remote": true,
+        "job_type": "fulltime",
+        "results": 50,
+        "hours_old": 48,
+        "output": "backend-jobs.json"
+      }
+    }
+  },
+  "state": {
+    "version": 1,
+    "profiles": {}
+  }
+}
+```
+
+## Running a Profile
+
+Run a profile by name:
+
+```bash
+jobspy --profile frontend
+```
+
+This uses all settings from the `frontend` profile config.
+
+**Output:**
+
+```text
+Found 12 jobs
+  (50 scraped, 12 new since last run — state: /home/user/project/jobspy.json)
+Results written to frontend-jobs.csv
+```
+
+## Listing Profiles
+
+View all profiles and their last run times:
+
+```bash
+jobspy --list-profiles
+```
+
+**Output:**
+
+```text
+Profiles in /home/user/project/jobspy.json:
+  frontend             last run: 3/5/2026, 9:15:00 AM  sites: linkedin, indeed, zip_recruiter, glassdoor  term: react frontend developer
+  backend              last run: 3/4/2026, 2:30:00 PM  sites: linkedin, indeed  term: node.js backend engineer
+  devops-remote        last run: never  sites: linkedin  term: devops engineer
+```
+
+## Overriding Profile Settings
+
+CLI flags always take priority over profile config. Use a profile as a base and override specific options:
+
+<CodeGroup>
+
+```bash Override location
+jobspy --profile frontend -l "San Francisco, CA"
+```
+
+```bash Override result count
+jobspy --profile backend -n 10
+```
+
+```bash Add filters
+jobspy --profile frontend --hours-old 24 -r
+```
+
+```bash Change output
+jobspy --profile backend -o my-results.json
+```
+
+</CodeGroup>
+
+## Profile Config Options
+
+All profile keys use `snake_case` (matching the SDK parameter names). Here's the complete reference:
+
+| Key | Type | Description | Default |
+|-----|------|-------------|--------|
+| `site` | `string[]` | Job boards to scrape | all sites |
+| `search_term` | `string` | Search query | — |
+| `google_search_term` | `string` | Override search term for Google Jobs | — |
+| `location` | `string` | Job location | — |
+| `distance` | `number` | Search radius in miles | `50` |
+| `remote` | `boolean` | Filter for remote jobs | `false` |
+| `job_type` | `string` | Employment type (`fulltime`, `parttime`, `contract`, `internship`) | — |
+| `easy_apply` | `boolean` | Easy apply filter | `false` |
+| `results` | `number` | Results per site | `15` |
+| `country` | `string` | Country for Indeed/Glassdoor | `usa` |
+| `proxies` | `string[]` | Proxy servers (`user:pass@host:port`) | — |
+| `format` | `string` | Description format (`markdown`, `html`, `plain`) | `markdown` |
+| `linkedin_fetch_description` | `boolean` | Fetch full LinkedIn descriptions | `false` |
+| `indeed_fetch_description` | `boolean` | Fetch full Indeed descriptions | `false` |
+| `linkedin_company_ids` | `number[]` | LinkedIn company IDs to filter | — |
+| `offset` | `number` | Pagination offset | `0` |
+| `hours_old` | `number` | Max age of postings in hours | — |
+| `enforce_annual_salary` | `boolean` | Normalize salaries to annual | `false` |
+| `verbose` | `number` | Log verbosity (`0`-`2`) | `0` |
+| `output` | `string` | Output file path (`.json` or `.csv`) | stdout |
+| **Credentials** | | | |
+| `creds` | `boolean` | Enable credential fallback | `false` |
+| `linkedin_username` | `string` | LinkedIn username/email | — |
+| `linkedin_password` | `string` | LinkedIn password | — |
+| `indeed_username` | `string` | Indeed username/email | — |
+| `indeed_password` | `string` | Indeed password | — |
+| `glassdoor_username` | `string` | Glassdoor username/email | — |
+| `glassdoor_password` | `string` | Glassdoor password | — |
+| `ziprecruiter_username` | `string` | ZipRecruiter username/email | — |
+| `ziprecruiter_password` | `string` | ZipRecruiter password | — |
+| `bayt_username` | `string` | Bayt username/email | — |
+| `bayt_password` | `string` | Bayt password | — |
+| `naukri_username` | `string` | Naukri username/email | — |
+| `naukri_password` | `string` | Naukri password | — |
+
+## Adding Custom Profiles
+
+Edit `jobspy.json` and add a new profile under `config.profiles`:
+
+```json
+{
+  "config": {
+    "profiles": {
+      "frontend": { /* ... */ },
+      "backend": { /* ... */ },
+      "devops-remote": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "devops engineer",
+        "location": "United States",
+        "remote": true,
+        "job_type": "fulltime",
+        "results": 30,
+        "hours_old": 24,
+        "output": "devops-jobs.csv"
+      }
+    }
+  },
+  "state": { /* managed automatically */ }
+}
+```
+
+Then run it:
+
+```bash
+jobspy --profile devops-remote
+```
+
+## Profile Name Conventions
+
+Profile names:
+
+- Are **case-sensitive** (`Frontend` ≠ `frontend`)
+- Can include hyphens, underscores, and alphanumerics
+- Cannot contain spaces (use hyphens or underscores)
+
+**Valid:** `frontend`, `backend-remote`, `data_analyst_nyc`
+
+**Invalid:** `my profile`, `front end`
+
+## Ad-Hoc Profiles
+
+You can use `--profile` with a name that doesn't exist in `config.profiles`. This creates a state entry for deduplication tracking without requiring a config definition:
+
+```bash
+jobspy --profile my-search -s linkedin -q "rust developer" -l "Austin, TX" -n 20
+```
+
+The profile `my-search` will now appear in `--list-profiles` and track dedup state on subsequent runs.
+
+## Credential Management in Profiles
+
+Profiles can store credentials for authenticated scraping fallback. However, **prefer environment variables** over storing passwords in `jobspy.json`.
+
+### Method 1: Environment Variables (Recommended)
+
+```json
+{
+  "config": {
+    "profiles": {
+      "frontend": {
+        "site": ["linkedin"],
+        "search_term": "react developer",
+        "creds": true
+      }
+    }
+  }
+}
+```
+
+Then set credentials as env vars:
+
+```bash
+export LINKEDIN_USERNAME="me@email.com"
+export LINKEDIN_PASSWORD="secret"
+jobspy --profile frontend
+```
+
+### Method 2: Inline in Profile (Not Recommended)
+
+```json
+{
+  "config": {
+    "profiles": {
+      "frontend": {
+        "site": ["linkedin"],
+        "search_term": "react developer",
+        "creds": true,
+        "linkedin_username": "me@email.com",
+        "linkedin_password": "secret"
+      }
+    }
+  }
+}
+```
+
+**Security warning:** If you store credentials in `jobspy.json`, ensure the file is not committed to version control. Add it to `.gitignore`.
+
+## State Section
+
+The `state` section of `jobspy.json` is managed automatically. It stores deduplication data for each profile. See [Deduplication](/cli/deduplication) for details.
+
+**Do not edit `state` manually.** It is updated automatically after each profile run.
+
+Example state after two runs:
+
+```json
+{
+  "state": {
+    "version": 1,
+    "profiles": {
+      "frontend": {
+        "lastRunAt": "2026-03-05T15:30:00.000Z",
+        "providers": {
+          "linkedin": {
+            "lastSeenDate": "2026-03-05",
+            "seenUrls": [
+              { "url": "https://linkedin.com/jobs/view/123", "seenAt": "2026-03-05" },
+              { "url": "https://linkedin.com/jobs/view/456", "seenAt": "2026-03-04" }
+            ]
+          },
+          "indeed": {
+            "lastSeenDate": "2026-03-04",
+            "seenUrls": []
+          }
+        }
+      },
+      "backend": {
+        "lastRunAt": "2026-03-04T20:00:00.000Z",
+        "providers": { /* ... */ }
+      }
+    }
+  }
+}
+```
+
+## File Location
+
+The CLI looks for `jobspy.json` in this order:
+
+1. **Current directory**
+2. **Git repository root** (if inside a git repo, walks up to `.git` directory)
+
+If no file exists, `--init` creates one in the current directory.
+
+To use a custom path, set the `JOBSPY_CONFIG` environment variable:
+
+```bash
+export JOBSPY_CONFIG="/path/to/my-config.json"
+jobspy --profile frontend
+```
+
+## Example Workflows
+
+### Daily Job Scraping with Dedup
+
+**jobspy.json:**
+
+```json
+{
+  "config": {
+    "profiles": {
+      "daily-frontend": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "react developer",
+        "location": "San Francisco, CA",
+        "remote": false,
+        "hours_old": 24,
+        "results": 100,
+        "output": "frontend-daily.csv"
+      }
+    }
+  }
+}
+```
+
+**Cron job:**
+
+```bash
+0 9 * * * cd /home/user/jobs && jobspy --profile daily-frontend
+```
+
+Runs every day at 9 AM. Only new jobs from the last 24 hours are exported.
+
+### Multi-Region Job Search
+
+**jobspy.json:**
+
+```json
+{
+  "config": {
+    "profiles": {
+      "backend-nyc": {
+        "site": ["linkedin", "indeed", "glassdoor"],
+        "search_term": "backend engineer python",
+        "location": "New York, NY",
+        "distance": 30,
+        "job_type": "fulltime",
+        "results": 50,
+        "output": "backend-nyc.csv"
+      },
+      "backend-sf": {
+        "site": ["linkedin", "indeed", "glassdoor"],
+        "search_term": "backend engineer python",
+        "location": "San Francisco, CA",
+        "distance": 30,
+        "job_type": "fulltime",
+        "results": 50,
+        "output": "backend-sf.csv"
+      },
+      "backend-austin": {
+        "site": ["linkedin", "indeed", "glassdoor"],
+        "search_term": "backend engineer python",
+        "location": "Austin, TX",
+        "distance": 30,
+        "job_type": "fulltime",
+        "results": 50,
+        "output": "backend-austin.csv"
+      }
+    }
+  }
+}
+```
+
+**Run all three:**
+
+```bash
+jobspy --profile backend-nyc
+jobspy --profile backend-sf
+jobspy --profile backend-austin
+```
+
+### Full-Time vs Contract Tracking
+
+```json
+{
+  "config": {
+    "profiles": {
+      "fulltime-dev": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "software developer",
+        "location": "Seattle, WA",
+        "job_type": "fulltime",
+        "results": 50,
+        "output": "fulltime-jobs.csv"
+      },
+      "contract-dev": {
+        "site": ["linkedin", "indeed"],
+        "search_term": "software developer",
+        "location": "Seattle, WA",
+        "job_type": "contract",
+        "results": 50,
+        "output": "contract-jobs.csv"
+      }
+    }
+  }
+}
+```
+
+## Related Pages
+
+<CardGroup cols={2}>
+  <Card title="Deduplication" icon="filter" href="/cli/deduplication">
+    How JobSpy tracks and filters previously seen jobs
+  </Card>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Complete CLI flag reference
+  </Card>
+</CardGroup>

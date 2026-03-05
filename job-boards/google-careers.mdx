@@ -1,0 +1,360 @@
+---
+title: Google Careers
+description: Scrape job postings directly from Google's career site (jobs at Google the company)
+---
+
+## Overview
+
+Google Careers is Google's official career site for **jobs at Google the company**. This is different from Google Jobs (the job aggregator). JobSpy JS scrapes Google Careers using **plain HTTP requests** and parsing embedded JSON data.
+
+<Note>
+  **Google Careers** scrapes jobs at Google (Alphabet). For aggregated job listings from across the web, use [Google Jobs](/job-boards/google-jobs).
+</Note>
+
+## Scraping Method
+
+**Plain HTTP** with JSON extraction from `https://www.google.com/about/careers/applications/jobs/results`
+
+- Fetches the public careers search page
+- Extracts structured JSON from `AF_initDataCallback` blocks in the HTML
+- Parses job listings with full details (description, qualifications, responsibilities)
+- Supports pagination (20 jobs per page, up to 1000 total)
+- Fast and reliable (no browser automation required)
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "software engineer",
+  location: "Mountain View, CA",
+  results_wanted: 50,
+});
+
+console.log(`Found ${result.jobs.length} jobs at Google`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}, ${job.location?.state}`);
+  console.log(`Posted: ${job.date_posted}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Search by role and location
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "product manager",
+  location: "New York, NY",
+  results_wanted: 30,
+});
+```
+
+### All engineering jobs
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "engineer",
+  results_wanted: 100,
+});
+
+// Group by location
+const byLocation = result.jobs.reduce((acc, job) => {
+  const loc = job.location?.city ?? "Unknown";
+  if (!acc[loc]) acc[loc] = [];
+  acc[loc].push(job);
+  return acc;
+}, {} as Record<string, typeof result.jobs>);
+
+console.log("Jobs by location:");
+for (const [location, jobs] of Object.entries(byLocation)) {
+  console.log(`${location}: ${jobs.length} jobs`);
+}
+```
+
+### Remote roles at Google
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "software engineer",
+  results_wanted: 100,
+});
+
+// Filter for remote jobs
+const remoteJobs = result.jobs.filter(job => job.is_remote);
+console.log(`${remoteJobs.length} remote jobs found`);
+```
+
+### Specific location search
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "data scientist",
+  location: "USA",  // Country-level search
+  results_wanted: 50,
+});
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City, state, or country (e.g., "USA", "California", "Mountain View") |
+| `distance` | ❌ | Not supported |
+| `is_remote` | ❌ | Filter after scraping using `is_remote` field |
+| `job_type` | ❌ | Filter after scraping using `job_type` field |
+| `hours_old` | ❌ | Not supported |
+| `easy_apply` | ❌ | Not applicable |
+
+<Note>
+  Google Careers has limited search filters. Use `search_term` and `location`, then filter results in code using the returned job metadata.
+</Note>
+
+## Returned Fields
+
+Google Careers returns rich job data:
+
+### Core fields
+- `id`, `title`, `company_name` (always "Google"), `location`, `job_url`, `date_posted`
+
+### Location
+- `location.city`, `location.state`, `location.country`
+- For jobs in multiple locations, `city` contains a semicolon-separated list
+
+### Job details
+- `description` (full job description including about, responsibilities, qualifications)
+- `is_remote` (detected from description or location)
+- `job_type` (extracted from description text: fulltime, parttime, contract, internship)
+- `emails` (extracted from description)
+
+### Description sections
+
+Google Careers descriptions include:
+- **About the role**: Overview and context
+- **Responsibilities**: Day-to-day tasks
+- **Minimum qualifications**: Required skills
+- **Preferred qualifications**: Nice-to-have skills
+
+All sections are combined into a single `description` field.
+
+## Rate Limits & Best Practices
+
+### No rate limits
+
+Google Careers is a public career site with no apparent rate limits. You can safely scrape:
+
+```typescript
+// ✅ No problem: Large batch
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "engineer",
+  results_wanted: 500,  // Fast, no rate limiting observed
+});
+```
+
+### Pagination limit
+
+Google Careers caps results at **1000 jobs** (50 pages × 20 jobs/page):
+
+```typescript
+// ✅ Good: Within limits
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "software",
+  results_wanted: 800,
+});
+
+// ⚠️ Capped: Will return max 1000
+const result2 = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "engineer",
+  results_wanted: 2000,  // Only returns 1000
+});
+```
+
+### Fast and reliable
+
+No browser automation means Google Careers is one of the **fastest** scrapers:
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const start = Date.now();
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "engineer",
+  results_wanted: 100,
+});
+const elapsed = Date.now() - start;
+
+console.log(`Scraped ${result.jobs.length} jobs in ${elapsed}ms`);
+// Typical: ~2-5 seconds for 100 jobs
+```
+
+## Troubleshooting
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Causes:**
+1. No jobs match your search term
+2. Location filter is too restrictive
+
+**Solutions:**
+1. Use broader search terms (e.g., "engineer" instead of "senior staff software engineer")
+2. Remove or broaden the location filter
+3. Try searching without filters:
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  results_wanted: 100,  // All jobs
+});
+```
+
+### Failed to extract AF_initDataCallback
+
+**Symptom:** Warning message "failed to extract AF_initDataCallback ds:1"
+
+**Cause:** Google changed the page structure or data format
+
+**Solutions:**
+1. Check for updates to `jobspy-js`
+2. Report the issue on GitHub
+3. Try using proxies if blocked by IP
+
+### Multiple locations in city field
+
+**Symptom:** `location.city` contains a long semicolon-separated list
+
+**Note:** This is expected for jobs available in multiple locations:
+```typescript
+job.location.city = "Mountain View, CA; New York, NY; Austin, TX"
+```
+
+To handle this:
+```typescript
+const cities = job.location?.city?.split(";").map(c => c.trim()) ?? [];
+console.log(`Available in ${cities.length} locations:`, cities);
+```
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s google_careers -q "software engineer" -l "Mountain View, CA" -n 30
+
+# All engineering jobs
+jobspy -s google_careers -q "engineer" -n 100 -o google-jobs.csv
+
+# Product manager roles
+jobspy -s google_careers -q "product manager" -n 50
+
+# Country-level search
+jobspy -s google_careers -q "data scientist" -l "USA" -n 40
+
+# Export to JSON
+jobspy -s google_careers -q "designer" -n 60 -o google-design-jobs.json
+
+# All jobs (no filter)
+jobspy -s google_careers -n 200
+```
+
+## Use Cases
+
+### Monitor new Google job postings
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+import fs from "fs";
+
+const LAST_RUN_FILE = "last-google-jobs.json";
+
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "software engineer",
+  results_wanted: 100,
+});
+
+const lastRunJobs = fs.existsSync(LAST_RUN_FILE)
+  ? JSON.parse(fs.readFileSync(LAST_RUN_FILE, "utf-8"))
+  : [];
+
+const lastRunIds = new Set(lastRunJobs.map((j: any) => j.id));
+const newJobs = result.jobs.filter(job => !lastRunIds.has(job.id));
+
+console.log(`${newJobs.length} new jobs posted since last run`);
+for (const job of newJobs) {
+  console.log(`NEW: ${job.title} - ${job.location?.city}`);
+}
+
+fs.writeFileSync(LAST_RUN_FILE, JSON.stringify(result.jobs));
+```
+
+### Find remote-friendly roles
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google_careers"],
+  search_term: "engineer",
+  results_wanted: 200,
+});
+
+const remoteJobs = result.jobs.filter(job => 
+  job.is_remote || 
+  job.description?.toLowerCase().includes("remote")
+);
+
+console.log(`${remoteJobs.length} remote or remote-friendly jobs`);
+```
+
+### Compare job counts by role
+
+```typescript
+const roles = ["engineer", "product manager", "designer", "data scientist"];
+const counts: Record<string, number> = {};
+
+for (const role of roles) {
+  const result = await scrapeJobs({
+    site_name: ["google_careers"],
+    search_term: role,
+    results_wanted: 1000,
+  });
+  counts[role] = result.jobs.length;
+  await new Promise(resolve => setTimeout(resolve, 2000));
+}
+
+console.log("Job counts by role:");
+for (const [role, count] of Object.entries(counts)) {
+  console.log(`${role}: ${count} jobs`);
+}
+```
+
+## Comparison: Google Careers vs Google Jobs
+
+| Feature | Google Careers | Google Jobs |
+|---------|----------------|-------------|
+| **Source** | Jobs at Google (the company) | Aggregated listings from across the web |
+| **Method** | Plain HTTP + JSON parsing | Playwright (headless Chrome) |
+| **Speed** | Fast (~2-5 sec for 100 jobs) | Slow (~5-10 sec per page) |
+| **IP requirements** | None (no blocking) | Residential IP required |
+| **Description quality** | Full, structured descriptions | Short snippets only |
+| **Rate limits** | None observed | Strict bot detection |
+| **Max results** | 1000 | Unlimited (but slow) |
+| **Best for** | Finding jobs at Google | Finding jobs anywhere |
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/google-careers/index.ts`
+- Key: `google_careers`
+- Site enum: `Site.GOOGLE_CAREERS`

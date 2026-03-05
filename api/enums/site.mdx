@@ -1,0 +1,196 @@
+---
+title: Site
+description: Job board site identifiers for multi-platform scraping
+---
+
+The `Site` enum defines all supported job board platforms that JobSpy can scrape. Use these values to specify which sites to search when calling `scrapeJobs()`.
+
+## Enum Values
+
+### `LINKEDIN`
+
+**Value:** `"linkedin"`
+
+Scrapes jobs from LinkedIn, the world's largest professional networking platform.
+
+- Supports authenticated and anonymous scraping
+- Can fetch detailed job descriptions with `linkedin_fetch_description`
+- Supports company-specific searches via `linkedin_company_ids`
+
+### `INDEED`
+
+**Value:** `"indeed"`
+
+Scrapes jobs from Indeed, one of the largest job aggregators globally.
+
+- Available in 50+ countries with localized domains
+- Supports detailed job descriptions with `indeed_fetch_description`
+- Includes company information and salary data when available
+
+### `ZIP_RECRUITER`
+
+**Value:** `"zip_recruiter"`
+
+Scrapes jobs from ZipRecruiter, a leading AI-powered job matching platform.
+
+- Primarily focused on US market
+- Known for aggregating listings from multiple sources
+
+### `GLASSDOOR`
+
+**Value:** `"glassdoor"`
+
+Scrapes jobs from Glassdoor, known for company reviews and salary transparency.
+
+- Includes company ratings and reviews when available
+- Supports multiple countries
+- May require authentication for full access
+
+### `GOOGLE`
+
+**Value:** `"google"`
+
+Scrapes jobs from Google for Jobs search results.
+
+- Aggregates listings from multiple job boards
+- Requires `google_search_term` parameter instead of `search_term`
+- Provides broad coverage across sources
+
+### `GOOGLE_CAREERS`
+
+**Value:** `"google_careers"`
+
+Scrapes jobs directly from Google's career pages.
+
+- Official Google job openings
+- Direct application links
+
+### `BAYT`
+
+**Value:** `"bayt"`
+
+Scrapes jobs from Bayt.com, the leading job site in the Middle East.
+
+- Focused on MENA region (Middle East and North Africa)
+- Supports Arabic and English listings
+
+### `NAUKRI`
+
+**Value:** `"naukri"`
+
+Scrapes jobs from Naukri.com, India's largest job portal.
+
+- Includes skills, experience range, and company ratings
+- Supports work-from-home filtering
+- Returns vacancy counts when available
+
+### `BDJOBS`
+
+**Value:** `"bdjobs"`
+
+Scrapes jobs from BDJobs.com, Bangladesh's premier job site.
+
+- Focused on Bangladeshi job market
+- Supports multiple industries and job categories
+
+## Usage Examples
+
+### Single Site
+
+```typescript
+import { scrapeJobs, Site } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.LINKEDIN,
+  search_term: 'software engineer',
+  location: 'San Francisco, CA',
+  results_wanted: 50
+});
+```
+
+### Multiple Sites
+
+```typescript
+import { scrapeJobs, Site } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: [Site.LINKEDIN, Site.INDEED, Site.GLASSDOOR],
+  search_term: 'product manager',
+  location: 'New York, NY',
+  is_remote: true,
+  results_wanted: 100
+});
+```
+
+### Region-Specific Sites
+
+```typescript
+import { scrapeJobs, Site } from 'jobspy-js';
+
+// Search Middle East market
+const menaJobs = await scrapeJobs({
+  site_name: Site.BAYT,
+  search_term: 'data analyst',
+  location: 'Dubai',
+  results_wanted: 30
+});
+
+// Search Indian market
+const indiaJobs = await scrapeJobs({
+  site_name: Site.NAUKRI,
+  search_term: 'full stack developer',
+  location: 'Bangalore',
+  results_wanted: 50
+});
+```
+
+### Google Job Search
+
+```typescript
+import { scrapeJobs, Site } from 'jobspy-js';
+
+const results = await scrapeJobs({
+  site_name: Site.GOOGLE,
+  google_search_term: 'entry level software engineer jobs',
+  location: 'Austin, TX',
+  results_wanted: 50
+});
+```
+
+## String Aliases
+
+You can also pass site names as strings (case-insensitive):
+
+```typescript
+const results = await scrapeJobs({
+  site_name: 'linkedin', // equivalent to Site.LINKEDIN
+  search_term: 'designer'
+});
+
+const multiSite = await scrapeJobs({
+  site_name: ['indeed', 'glassdoor'], // string array
+  search_term: 'engineer'
+});
+```
+
+## Type Definition
+
+```typescript
+enum Site {
+  LINKEDIN = "linkedin",
+  INDEED = "indeed",
+  ZIP_RECRUITER = "zip_recruiter",
+  GLASSDOOR = "glassdoor",
+  GOOGLE = "google",
+  GOOGLE_CAREERS = "google_careers",
+  BAYT = "bayt",
+  NAUKRI = "naukri",
+  BDJOBS = "bdjobs",
+}
+```
+
+## Related
+
+- [scrapeJobs()](/api/scrape-jobs) - Main scraping function that accepts Site values
+- [ScrapeJobsParams](/api/types/scrape-jobs-params) - Parameters interface including site_name
+- [Authentication](/sdk/authentication) - Setting up credentials for authenticated scraping

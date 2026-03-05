@@ -1,0 +1,231 @@
+---
+title: JobPost
+description: A single job posting returned by the scraper
+---
+
+## Overview
+
+The `JobPost` interface represents a single job posting scraped from a job board. It contains all available information about the job, including the title, company, location, compensation, and description.
+
+## Interface Definition
+
+```typescript
+export interface JobPost {
+  // Core fields
+  id?: string;
+  title: string;
+  company_name?: string;
+  job_url: string;
+  job_url_direct?: string;
+  location?: Location;
+  description?: string;
+  company_url?: string;
+  company_url_direct?: string;
+  job_type?: JobType[];
+  compensation?: Compensation;
+  date_posted?: string;
+  emails?: string[];
+  is_remote?: boolean;
+  listing_type?: string;
+
+  // LinkedIn specific
+  job_level?: string;
+  job_function?: string;
+
+  // LinkedIn and Indeed specific
+  company_industry?: string;
+
+  // Indeed specific
+  company_addresses?: string;
+  company_num_employees?: string;
+  company_revenue?: string;
+  company_description?: string;
+  company_logo?: string;
+  banner_photo_url?: string;
+
+  // Naukri specific
+  skills?: string[];
+  experience_range?: string;
+  company_rating?: number;
+  company_reviews_count?: number;
+  vacancy_count?: number;
+  work_from_home_type?: string;
+}
+```
+
+## Fields
+
+### Core Fields
+
+These fields are common across all job boards:
+
+<ResponseField name="id" type="string" optional>
+  Unique identifier for the job posting (may be site-specific)
+</ResponseField>
+
+<ResponseField name="title" type="string" required>
+  Job title (e.g., "Senior Software Engineer")
+</ResponseField>
+
+<ResponseField name="company_name" type="string" optional>
+  Name of the hiring company
+</ResponseField>
+
+<ResponseField name="job_url" type="string" required>
+  URL to the job posting on the job board
+</ResponseField>
+
+<ResponseField name="job_url_direct" type="string" optional>
+  Direct application URL (bypasses job board, goes to company site)
+</ResponseField>
+
+<ResponseField name="location" type="Location" optional>
+  Geographic location of the job. See [Location](/api/types/location) interface.
+</ResponseField>
+
+<ResponseField name="description" type="string" optional>
+  Full job description text. Format depends on `description_format` parameter.
+</ResponseField>
+
+<ResponseField name="company_url" type="string" optional>
+  URL to the company's profile page on the job board
+</ResponseField>
+
+<ResponseField name="company_url_direct" type="string" optional>
+  Direct URL to the company's website
+</ResponseField>
+
+<ResponseField name="job_type" type="JobType[]" optional>
+  Array of job types (e.g., `[JobType.FULL_TIME, JobType.REMOTE]`). See [JobType enum](/api/enums/job-type).
+</ResponseField>
+
+<ResponseField name="compensation" type="Compensation" optional>
+  Salary/wage information. See [Compensation](/api/types/compensation) interface.
+</ResponseField>
+
+<ResponseField name="date_posted" type="string" optional>
+  Date the job was posted (ISO 8601 format or relative date string)
+</ResponseField>
+
+<ResponseField name="emails" type="string[]" optional>
+  Contact email addresses extracted from the job posting
+</ResponseField>
+
+<ResponseField name="is_remote" type="boolean" optional>
+  Whether the job is remote/work-from-home
+</ResponseField>
+
+<ResponseField name="listing_type" type="string" optional>
+  Type of listing (e.g., "organic", "sponsored")
+</ResponseField>
+
+### LinkedIn-Specific Fields
+
+<ResponseField name="job_level" type="string" optional>
+  Seniority level (e.g., "Mid-Senior level", "Entry level")
+</ResponseField>
+
+<ResponseField name="job_function" type="string" optional>
+  Job function/department (e.g., "Engineering", "Sales")
+</ResponseField>
+
+### Indeed-Specific Fields
+
+<ResponseField name="company_addresses" type="string" optional>
+  Physical addresses of the company
+</ResponseField>
+
+<ResponseField name="company_num_employees" type="string" optional>
+  Number of employees at the company (e.g., "1,000-5,000")
+</ResponseField>
+
+<ResponseField name="company_revenue" type="string" optional>
+  Company revenue information
+</ResponseField>
+
+<ResponseField name="company_description" type="string" optional>
+  Description of the company
+</ResponseField>
+
+<ResponseField name="company_logo" type="string" optional>
+  URL to the company's logo image
+</ResponseField>
+
+<ResponseField name="banner_photo_url" type="string" optional>
+  URL to the company's banner/header image
+</ResponseField>
+
+### Naukri-Specific Fields
+
+<ResponseField name="skills" type="string[]" optional>
+  Required skills for the job
+</ResponseField>
+
+<ResponseField name="experience_range" type="string" optional>
+  Years of experience required (e.g., "2-5 years")
+</ResponseField>
+
+<ResponseField name="company_rating" type="number" optional>
+  Company rating on Naukri (0-5 scale)
+</ResponseField>
+
+<ResponseField name="company_reviews_count" type="number" optional>
+  Number of company reviews on Naukri
+</ResponseField>
+
+<ResponseField name="vacancy_count" type="number" optional>
+  Number of open positions for this job
+</ResponseField>
+
+<ResponseField name="work_from_home_type" type="string" optional>
+  Work from home policy (e.g., "Full Time", "Hybrid")
+</ResponseField>
+
+### Shared Fields
+
+<ResponseField name="company_industry" type="string" optional>
+  Industry/sector of the company (available on LinkedIn and Indeed)
+</ResponseField>
+
+## Example
+
+```typescript
+import { scrapeJobs, JobPost } from 'jobspy-js';
+
+const response = await scrapeJobs({
+  site_name: ['linkedin', 'indeed'],
+  search_term: 'software engineer',
+  location: 'San Francisco, CA',
+  results_wanted: 10,
+  description_format: 'markdown'
+});
+
+// Access job posts
+response.jobs.forEach((job: JobPost) => {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}, ${job.location?.state}`);
+  
+  if (job.compensation) {
+    console.log(
+      `Salary: $${job.compensation.min_amount}-$${job.compensation.max_amount} ${job.compensation.interval}`
+    );
+  }
+  
+  console.log(`Apply: ${job.job_url}`);
+  console.log('---');
+});
+```
+
+## Notes
+
+- Only `title` and `job_url` are guaranteed to be present. All other fields are optional and depend on what data is available from the job board.
+- Site-specific fields (LinkedIn, Indeed, Naukri) are only populated when scraping from those respective sites.
+- Use the `description_format` parameter in `scrapeJobs()` to control whether descriptions are returned as HTML, Markdown, or plain text.
+- The `job_url_direct` field often provides a better application experience but may not always be available.
+
+## Related Types
+
+- [JobResponse](/api/types/job-response) - Container for multiple job posts
+- [Location](/api/types/location) - Geographic location structure
+- [Compensation](/api/types/compensation) - Salary/wage information
+- [JobType enum](/api/enums/job-type) - Job type constants

@@ -1,0 +1,189 @@
+---
+title: CLI Overview
+description: Get started with the JobSpy JS command-line interface
+---
+
+The JobSpy JS CLI provides a powerful command-line interface for scraping job postings from 9 major job boards. It's built on top of the SDK and adds config profiles, deduplication tracking, and convenient output formatting.
+
+## Installation
+
+Install JobSpy JS globally to use the `jobspy` command:
+
+```bash
+npm install -g jobspy-js
+```
+
+For Google Jobs support, install Playwright's Chromium browser:
+
+```bash
+npx playwright install chromium
+```
+
+## Basic Usage
+
+The simplest scrape requires just a site and search term:
+
+```bash
+jobspy -s linkedin -q "react developer"
+```
+
+This searches LinkedIn for React developer positions and prints results to stdout.
+
+## Quick Examples
+
+<CodeGroup>
+
+```bash Single site, location filter
+jobspy -s linkedin -q "react developer" -l "New York, NY" -n 20
+```
+
+```bash Multiple sites, remote only
+jobspy -s linkedin indeed -q "typescript engineer" -r -o results.json
+```
+
+```bash CSV output with salary normalization
+jobspy -s indeed -q "python developer" --enforce-annual-salary -o jobs.csv
+```
+
+```bash Recent postings only
+jobspy -s linkedin glassdoor -q "devops" --hours-old 24 -n 50
+```
+
+</CodeGroup>
+
+## Output Formats
+
+### Terminal Table (default)
+
+Without `-o/--output`, results print as a formatted table:
+
+```bash
+jobspy -s linkedin -q "engineer" -n 5
+```
+
+```text
+Found 5 jobs
+linkedin      Senior Software Engineer                    Acme Corp             San Francisco, CA          2026-03-04
+linkedin      Frontend Engineer - React                   TechCo                Remote                     2026-03-03
+linkedin      Backend Engineer                            StartupXYZ            New York, NY               2026-03-02
+linkedin      Full Stack Developer                        DevShop               Austin, TX                 2026-03-01
+linkedin      Principal Engineer                          BigTech               Seattle, WA                2026-02-28
+```
+
+### JSON Output
+
+Use `-o` with a `.json` extension:
+
+```bash
+jobspy -s linkedin -q "engineer" -n 5 -o results.json
+```
+
+Outputs an array of job objects with all scraped fields:
+
+```json
+[
+  {
+    "site": "linkedin",
+    "job_url": "https://www.linkedin.com/jobs/view/4127292817",
+    "job_url_direct": null,
+    "title": "Senior Software Engineer",
+    "company": "Acme Corp",
+    "location": "San Francisco, CA",
+    "job_type": ["fulltime"],
+    "date_posted": "2026-03-04",
+    "salary_source": "from_description",
+    "interval": "yearly",
+    "min_amount": 150000,
+    "max_amount": 200000,
+    "currency": "USD",
+    "is_remote": false,
+    "job_level": "mid-senior level",
+    "job_function": "Engineering",
+    "listing_type": "external",
+    "emails": [],
+    "description": "# About the Role\n\nWe are seeking..."
+  }
+]
+```
+
+### CSV Output
+
+Use `-o` with a `.csv` extension:
+
+```bash
+jobspy -s indeed linkedin -q "data analyst" -n 10 -o results.csv
+```
+
+Generates a CSV with headers from all available fields:
+
+```csv
+site,job_url,title,company,location,job_type,date_posted,min_amount,max_amount,currency,is_remote
+indeed,https://indeed.com/viewjob?jk=abc123,Data Analyst,DataCo,"Chicago, IL",fulltime,2026-03-04,65000,85000,USD,false
+linkedin,https://linkedin.com/jobs/view/456789,Senior Data Analyst,AnalyticsCorp,Remote,fulltime,2026-03-03,90000,120000,USD,true
+```
+
+## Core Workflow
+
+A typical JobSpy CLI workflow:
+
+1. **Search** — scrape jobs from one or more sites
+2. **Filter** — apply location, remote, type, and recency filters
+3. **Deduplicate** — (optional) track previously seen jobs with `--profile`
+4. **Export** — save results as JSON or CSV
+
+## Common Options
+
+| Flag | Description | Default |
+|------|-------------|--------|
+| `-s, --site` | Job boards to scrape | all sites |
+| `-q, --search-term` | Search query | — |
+| `-l, --location` | Job location | — |
+| `-n, --results` | Results per site | `15` |
+| `-r, --remote` | Remote jobs only | `false` |
+| `-t, --job-type` | Employment type | — |
+| `-o, --output` | Output file (`.json` or `.csv`) | stdout |
+| `--hours-old` | Max posting age in hours | — |
+| `-v, --verbose` | Verbosity level (`0`-`2`) | `0` |
+
+See [Commands](/cli/commands) for the complete flag reference.
+
+## Supported Job Boards
+
+The CLI supports all 9 job boards:
+
+| Site | Key | Notes |
+|------|-----|-------|
+| LinkedIn | `linkedin` | HTML scraping |
+| Indeed | `indeed` | GraphQL API |
+| Glassdoor | `glassdoor` | GraphQL API |
+| Google Jobs | `google` | Playwright (requires proxy/clean IP) |
+| Google Careers | `google_careers` | Jobs at Google (the company) |
+| ZipRecruiter | `zip_recruiter` | Web scraping |
+| Bayt | `bayt` | HTML scraping |
+| Naukri | `naukri` | REST API |
+| BDJobs | `bdjobs` | REST API |
+
+Scrape multiple sites in a single run:
+
+```bash
+jobspy -s linkedin indeed glassdoor -q "software engineer" -n 25
+```
+
+All sites are scraped concurrently for maximum speed.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Commands" icon="terminal" href="/cli/commands">
+    Complete CLI flag reference and advanced examples
+  </Card>
+  <Card title="Config Profiles" icon="file-code" href="/cli/config-profiles">
+    Define reusable search profiles in jobspy.json
+  </Card>
+  <Card title="Deduplication" icon="filter" href="/cli/deduplication">
+    Track and filter previously seen jobs across runs
+  </Card>
+  <Card title="SDK Reference" icon="code" href="/sdk/scrape-jobs">
+    Use JobSpy programmatically in Node.js
+  </Card>
+</CardGroup>

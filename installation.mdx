@@ -1,0 +1,152 @@
+---
+title: Installation
+description: Install JobSpy JS and configure dependencies for job scraping
+---
+
+## Package Installation
+
+JobSpy JS is available on npm and supports Node.js 18+. Choose your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install jobspy-js
+```
+
+```bash yarn
+yarn add jobspy-js
+```
+
+```bash pnpm
+pnpm add jobspy-js
+```
+
+</CodeGroup>
+
+## Playwright Setup for Google Jobs
+
+If you plan to scrape **Google Jobs** (the `google` site), you must install Playwright's Chromium browser. Google Jobs requires headless Chrome to execute JavaScript and bypass bot detection.
+
+<Steps>
+
+<Step title="Install Chromium">
+  After installing `jobspy-js`, run the Playwright installation command:
+
+  ```bash
+  npx playwright install chromium
+  ```
+
+  This downloads the Chromium browser binary (~300MB) to your system.
+</Step>
+
+<Step title="Verify Installation">
+  Test that Playwright is working:
+
+  ```bash
+  npx playwright --version
+  ```
+
+  You should see output like `Version 1.58.2`.
+</Step>
+
+</Steps>
+
+<Note>
+  **Google Jobs also requires a clean residential IP or proxy.** Google's anti-bot systems are aggressive. If scraping fails with timeouts or captchas, configure a residential proxy using the `proxies` parameter.
+</Note>
+
+<Warning>
+  The other 8 job boards (LinkedIn, Indeed, Glassdoor, Google Careers, ZipRecruiter, Bayt, Naukri, BDJobs) do **not** require Playwright. They use HTTP requests with TLS fingerprinting via [wreq-js](https://github.com/nicehash/wreq-js).
+</Warning>
+
+## Proxy Configuration (Optional)
+
+JobSpy JS supports proxy rotation for all scrapers. This is useful for:
+
+- Bypassing rate limits on job boards
+- Scraping from regions where your IP is blocked
+- Avoiding bot detection (especially for Google Jobs and LinkedIn)
+
+### Setting Up Proxies
+
+Pass proxies in the format `user:pass@host:port` or `host:port`:
+
+```ts
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed"],
+  search_term: "software engineer",
+  proxies: "user:pass@proxy.example.com:8080",
+});
+```
+
+**Multiple proxies** (automatic rotation):
+
+```ts
+const result = await scrapeJobs({
+  site_name: ["linkedin", "indeed", "google"],
+  search_term: "react developer",
+  proxies: [
+    "user:pass@proxy1.example.com:8080",
+    "user:pass@proxy2.example.com:8080",
+    "user:pass@proxy3.example.com:8080",
+  ],
+});
+```
+
+JobSpy JS will rotate through the proxy list for each request.
+
+<Tip>
+  For **Google Jobs**, use residential or mobile proxies. Datacenter proxies often trigger captchas.
+</Tip>
+
+## TypeScript Support
+
+JobSpy JS is written in TypeScript and includes full type definitions. No additional `@types` packages are needed.
+
+```ts
+import { scrapeJobs, Site, JobType, type JobPost } from "jobspy-js";
+
+// Full autocomplete and type safety
+const result = await scrapeJobs({
+  site_name: [Site.LINKEDIN, Site.INDEED],
+  job_type: JobType.FULL_TIME,
+  results_wanted: 50,
+});
+
+// Type-safe job records
+result.jobs.forEach((job) => {
+  console.log(job.title, job.company, job.salary_source);
+});
+```
+
+## Verify Installation
+
+Run a quick test to confirm everything is working:
+
+```ts
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "test",
+  location: "New York, NY",
+  results_wanted: 5,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+```
+
+If this runs without errors, you're ready to start scraping jobs.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first job scraper in 5 minutes
+  </Card>
+  <Card title="SDK Reference" icon="code" href="/sdk-reference">
+    Explore all parameters and methods
+  </Card>
+</CardGroup>

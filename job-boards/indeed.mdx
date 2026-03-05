@@ -1,0 +1,329 @@
+---
+title: Indeed
+description: Scrape job postings from Indeed using the GraphQL API with support for 60+ countries
+---
+
+## Overview
+
+Indeed is the world's largest job search engine, aggregating listings from thousands of company career sites. JobSpy JS scrapes Indeed using its **GraphQL API**, which provides fast, reliable access to structured job data.
+
+## Scraping Method
+
+**GraphQL API** at `https://apis.indeed.com/graphql`
+
+- Queries the public Indeed GraphQL endpoint
+- Supports pagination via cursor-based navigation
+- Returns structured job data with full company and compensation details
+- Works across 60+ country domains (indeed.com, indeed.co.uk, indeed.de, etc.)
+
+## Country Support
+
+Indeed requires a `country` parameter to select the correct regional domain and API endpoint.
+
+### Available countries
+
+JobSpy JS supports 60+ countries. Some examples:
+
+| Country | Code | Domain |
+|---------|------|--------|
+| United States | `usa` | indeed.com |
+| United Kingdom | `uk` | indeed.co.uk |
+| Canada | `canada` | indeed.ca |
+| Germany | `germany` | de.indeed.com |
+| France | `france` | fr.indeed.com |
+| Australia | `australia` | au.indeed.com |
+| India | `india` | indeed.co.in |
+
+**Full list:** See `src/types.ts` in the source repository for all supported countries.
+
+### Set country
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "data scientist",
+  location: "London",
+  country_indeed: "uk",  // Use Indeed UK
+});
+```
+
+<Note>
+  The `country_indeed` parameter defaults to `"usa"` if not specified.
+</Note>
+
+## Indeed-Specific Parameters
+
+### `indeed_fetch_description`
+
+By default, Indeed API responses include a **truncated** description. Set this to `true` to fetch the full description from the job page or direct application link.
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "software engineer",
+  indeed_fetch_description: true,  // Fetch full descriptions
+});
+```
+
+**Trade-off:**
+- `false` (default): Fast, but descriptions may be truncated
+- `true`: Slower (1 extra request per job), but includes full job description
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "product manager",
+  location: "Austin, TX",
+  results_wanted: 50,
+  country_indeed: "usa",
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Salary: $${job.compensation?.min_amount}-${job.compensation?.max_amount}/${job.compensation?.interval}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Search in multiple countries
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const countries = ["usa", "uk", "canada", "australia"];
+const allJobs = [];
+
+for (const country of countries) {
+  const result = await scrapeJobs({
+    site_name: ["indeed"],
+    search_term: "backend engineer",
+    location: country === "usa" ? "Remote" : "",
+    country_indeed: country,
+    results_wanted: 20,
+  });
+  allJobs.push(...result.jobs);
+}
+
+console.log(`Found ${allJobs.length} jobs across ${countries.length} countries`);
+```
+
+### Fetch full details for a single job
+
+```typescript
+import { fetchJobDetails } from "jobspy-js";
+
+// Fetch by Indeed job key (the part after "in-" in the job ID)
+const job = await fetchJobDetails("indeed", "fdde406379455a1e");
+
+console.log(job.title);
+console.log(job.company_name);
+console.log(job.description);  // Full description
+console.log(job.job_url_direct);  // Direct application link
+```
+
+### Filter by job type and posting date
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "marketing coordinator",
+  location: "Chicago, IL",
+  job_type: "fulltime",
+  hours_old: 48,  // Posted in last 2 days
+  results_wanted: 30,
+  country_indeed: "usa",
+});
+```
+
+### Easy Apply jobs only
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "graphic designer",
+  location: "Los Angeles, CA",
+  easy_apply: true,  // Indeed Easy Apply only
+  results_wanted: 25,
+});
+```
+
+### Remote jobs with salary data
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "devops engineer",
+  is_remote: true,
+  results_wanted: 40,
+  enforce_annual_salary: true,  // Convert all salaries to annual
+});
+
+// Filter jobs with salary information
+const jobsWithSalary = result.jobs.filter(job => job.compensation?.min_amount);
+console.log(`${jobsWithSalary.length} jobs have salary data`);
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords |
+| `location` | ✅ | City, state, or region |
+| `distance` | ✅ | Radius in miles (default: 50) |
+| `is_remote` | ✅ | Remote-only filter |
+| `job_type` | ✅ | `fulltime`, `parttime`, `contract`, `internship` |
+| `hours_old` | ✅ | Filter by posting age (in hours) |
+| `easy_apply` | ✅ | Indeed Easy Apply jobs only |
+| `country_indeed` | ✅ | Country domain (default: `usa`) |
+
+## Returned Fields
+
+Indeed returns rich job metadata:
+
+### Core fields
+- `id`, `title`, `company_name`, `company_url`, `location`, `date_posted`, `job_url`, `job_url_direct`
+
+### Compensation
+- `compensation.interval` (hourly, daily, weekly, monthly, yearly)
+- `compensation.min_amount`, `compensation.max_amount`, `compensation.currency`
+
+### Company details
+- `company_url_direct` (corporate website)
+- `company_industry`
+- `company_num_employees`
+- `company_revenue`
+- `company_description`
+- `company_logo`
+- `company_addresses`
+
+### Job metadata
+- `description` (HTML, markdown, or plain text)
+- `job_type` (array of employment types)
+- `is_remote` (boolean)
+- `emails` (extracted from description)
+
+## Rate Limits & Best Practices
+
+Indeed's GraphQL API is generally more permissive than LinkedIn, but still has limits:
+
+### Reasonable request rates
+
+```typescript
+// ✅ Good: Moderate batch sizes
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "engineer",
+  results_wanted: 100,  // 100 jobs = ~1 API request
+});
+
+// ⚠️ Avoid: Excessive requests in quick succession
+for (let i = 0; i < 100; i++) {
+  // Don't do this without delays
+  await scrapeJobs({ site_name: ["indeed"], search_term: `job ${i}` });
+}
+```
+
+### Use proxies for high-volume scraping
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "data analyst",
+  proxies: ["user:pass@proxy.com:8080"],
+  results_wanted: 100,
+});
+```
+
+### Handle pagination efficiently
+
+Indeed returns up to 100 jobs per API request. JobSpy automatically handles pagination:
+
+```typescript
+// This will make ~10 API requests (100 jobs/page × 10 pages)
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "software developer",
+  results_wanted: 1000,
+});
+```
+
+## Troubleshooting
+
+### Empty results
+
+**Symptom:** `jobs` array is empty
+
+**Solutions:**
+1. Check if the location exists on Indeed for the selected country
+2. Try broader search terms
+3. Verify `country_indeed` matches your target region
+
+### Missing salary data
+
+**Symptom:** `compensation` is `undefined` for most jobs
+
+**Note:** Indeed only returns salary data when employers include it. This is a data availability issue, not a scraping issue. Consider enabling salary extraction from descriptions:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "engineer",
+  enforce_annual_salary: true,  // Extract salaries from descriptions
+});
+```
+
+### Truncated descriptions
+
+**Symptom:** Job descriptions are incomplete
+
+**Solution:** Enable full description fetching:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["indeed"],
+  search_term: "nurse",
+  indeed_fetch_description: true,
+});
+```
+
+## CLI Examples
+
+```bash
+# Basic search (USA)
+jobspy -s indeed -q "software engineer" -l "San Francisco, CA" -n 50
+
+# Search in UK
+jobspy -s indeed -q "data scientist" -l "London" -c uk -n 30
+
+# Remote jobs only
+jobspy -s indeed -q "python developer" -r -n 40
+
+# Full-time jobs posted in last 24 hours
+jobspy -s indeed -q "product manager" -t fulltime --hours-old 24 -n 25
+
+# Easy Apply jobs with full descriptions
+jobspy -s indeed -q "marketing" --easy-apply --indeed-fetch-description -n 20
+
+# Fetch single job by ID
+jobspy -s indeed --id fdde406379455a1e
+
+# Multiple countries
+jobspy -s indeed -q "engineer" -c usa -n 50 -o usa-jobs.json
+jobspy -s indeed -q "engineer" -c uk -n 50 -o uk-jobs.json
+```
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/indeed/index.ts`
+- Key: `indeed`
+- Site enum: `Site.INDEED`

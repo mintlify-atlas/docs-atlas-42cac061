@@ -1,0 +1,349 @@
+---
+title: Google Jobs
+description: Scrape job aggregation results from Google Jobs using Playwright headless Chrome
+---
+
+## Overview
+
+Google Jobs is a job search aggregator that pulls listings from across the web (company sites, job boards, etc.). JobSpy JS scrapes Google Jobs using **Playwright** with headless Chrome to execute JavaScript and parse the dynamic search results.
+
+<Warning>
+  Google Jobs requires a **clean residential IP** or high-quality proxy. Datacenter IPs and VPNs are often blocked.
+</Warning>
+
+## Scraping Method
+
+**Playwright (headless Chrome)** navigating `https://www.google.com/search?udm=8`
+
+- Launches a real Chrome browser instance
+- Executes JavaScript to load dynamic job listings
+- Parses structured JSON data embedded in the page HTML
+- Supports cursor-based pagination
+- Requires Playwright Chromium installation
+
+### Installation
+
+After installing `jobspy-js`, install Playwright's Chromium browser:
+
+```bash
+npm install jobspy-js
+npx playwright install chromium
+```
+
+<Note>
+  Google Jobs is the **slowest** scraper due to browser automation. Expect ~5-10 seconds per page.
+</Note>
+
+## IP Requirements
+
+<Warning>
+  Google aggressively blocks bot traffic. You **must** use:
+  - Clean residential IPs, or
+  - High-quality residential proxies
+  
+  Datacenter proxies, VPNs, and cloud server IPs are usually blocked.
+</Warning>
+
+### Using proxies
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  proxies: "user:pass@residential-proxy.com:8080",
+  results_wanted: 20,
+});
+```
+
+## Google Jobs-Specific Parameters
+
+### `google_search_term`
+
+Google Jobs search is based on natural language queries. You can override the auto-generated query with a custom one:
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "engineer",  // Used for other sites
+  location: "New York",
+  google_search_term: "senior software engineer jobs near New York",  // Custom Google query
+  results_wanted: 30,
+});
+```
+
+**Auto-generated query format:**  
+If `google_search_term` is not provided, JobSpy builds a query from:
+- `search_term` + "jobs"
+- `location` ("near {location}")
+- `job_type` ("Full time", "Part time", etc.)
+- `hours_old` ("since yesterday", "in the last week", etc.)
+- `is_remote` ("remote")
+
+Example: `"software engineer jobs Full time near San Francisco remote"`
+
+### Query refinement tips
+
+```typescript
+// ✅ Good: Specific, natural language
+const result1 = await scrapeJobs({
+  site_name: ["google"],
+  google_search_term: "entry level data analyst jobs in Chicago posted this week",
+});
+
+// ❌ Avoid: Keyword stuffing
+const result2 = await scrapeJobs({
+  site_name: ["google"],
+  google_search_term: "engineer software developer programmer python java",
+});
+```
+
+## Example Usage
+
+### Basic search
+
+```typescript
+import { scrapeJobs } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "product manager",
+  location: "Seattle, WA",
+  results_wanted: 30,
+});
+
+console.log(`Found ${result.jobs.length} jobs`);
+for (const job of result.jobs) {
+  console.log(`${job.title} at ${job.company_name}`);
+  console.log(`Location: ${job.location?.city}`);
+  console.log(job.job_url);
+  console.log("---");
+}
+```
+
+### Remote jobs posted recently
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "frontend developer",
+  is_remote: true,
+  hours_old: 72,  // Last 3 days
+  results_wanted: 40,
+});
+```
+
+### Custom search query
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google"],
+  google_search_term: "senior full stack engineer jobs remote $150k+ posted today",
+  results_wanted: 20,
+});
+```
+
+### Filter by job type
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "data scientist",
+  location: "Boston, MA",
+  job_type: "fulltime",
+  results_wanted: 25,
+});
+```
+
+### With residential proxy
+
+```typescript
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "backend engineer",
+  location: "Austin, TX",
+  proxies: "user:pass@residential-proxy.com:8080",
+  results_wanted: 50,
+});
+```
+
+## Supported Filters
+
+| Filter | Support | Notes |
+|--------|---------|-------|
+| `search_term` | ✅ | Job title or keywords (used in auto-generated query) |
+| `location` | ✅ | City, state, or region (added as "near {location}") |
+| `is_remote` | ✅ | Appends "remote" to search query |
+| `job_type` | ✅ | Appends "Full time", "Part time", etc. to query |
+| `hours_old` | ✅ | Adds recency filter ("since yesterday", "in the last week") |
+| `google_search_term` | ✅ | Override auto-generated query |
+| `distance` | ❌ | Not supported (Google Jobs doesn't expose this filter) |
+| `easy_apply` | ❌ | Not supported |
+
+<Note>
+  Google Jobs filters are applied via **natural language query construction**, not API parameters. For best results, use the `google_search_term` override.
+</Note>
+
+## Returned Fields
+
+Google Jobs returns minimal but structured data:
+
+- `id`, `title`, `company_name`, `location`, `job_url`, `date_posted`
+- `description` (short snippet, not full description)
+- `is_remote` (inferred from description)
+- `job_type` (extracted from description text)
+- `emails` (extracted from description)
+
+<Warning>
+  Google Jobs descriptions are **short snippets**, not full job descriptions. For complete details, visit the `job_url`.
+</Warning>
+
+## Rate Limits & Best Practices
+
+### Use residential IPs/proxies
+
+Google Jobs is very strict about bot detection. **Always** use:
+- Your home/office internet (residential IP)
+- High-quality residential proxies
+
+**Do not use:**
+- Cloud server IPs (AWS, GCP, Azure, DigitalOcean, etc.)
+- Datacenter proxies
+- Free/cheap VPNs
+
+### Keep results_wanted moderate
+
+Each page load takes 5-10 seconds. Limit your results to avoid long wait times:
+
+```typescript
+// ✅ Good: Fast and reliable
+const result = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "engineer",
+  results_wanted: 30,  // 3 pages, ~30 seconds
+});
+
+// ⚠️ Slow: May take 5+ minutes
+const result2 = await scrapeJobs({
+  site_name: ["google"],
+  search_term: "developer",
+  results_wanted: 200,  // 20 pages, ~3-5 minutes
+});
+```
+
+### Avoid rapid successive runs
+
+Google tracks browser sessions and may block repeated searches. Add delays between runs:
+
+```typescript
+for (const term of ["engineer", "designer", "manager"]) {
+  const result = await scrapeJobs({
+    site_name: ["google"],
+    search_term: term,
+    results_wanted: 20,
+  });
+  console.log(`Found ${result.jobs.length} ${term} jobs`);
+  
+  // Wait 60 seconds between searches
+  await new Promise(resolve => setTimeout(resolve, 60_000));
+}
+```
+
+### Headless mode
+
+JobSpy runs Chrome in headless mode by default. If you encounter blocks, consider running in **headful mode** during development (requires modifying source code):
+
+```typescript
+// In scrapers/google/index.ts
+this.browser = await chromium.launch({
+  headless: false,  // Show browser window
+});
+```
+
+## Troubleshooting
+
+### Empty results or blocks
+
+**Symptom:** 0 results returned or browser hangs
+
+**Cause:** Google detected bot traffic and blocked the request
+
+**Solutions:**
+1. Use a residential IP or high-quality residential proxy
+2. Avoid running multiple searches in quick succession
+3. Try a different proxy or IP
+4. Simplify your search query
+
+### "Chromium not found" error
+
+**Symptom:** `browserType.launch: Executable doesn't exist`
+
+**Solution:** Install Playwright Chromium:
+```bash
+npx playwright install chromium
+```
+
+### Slow performance
+
+**Symptom:** Scraping takes several minutes
+
+**Cause:** Google Jobs requires launching a real browser and waiting for JavaScript execution
+
+**Solutions:**
+1. Reduce `results_wanted`
+2. Use a faster scraper (Indeed, LinkedIn, Glassdoor) for bulk data
+3. Run Google Jobs searches in parallel (separate processes)
+
+### Missing job descriptions
+
+**Symptom:** `description` field contains only a short snippet
+
+**Note:** This is expected. Google Jobs only shows short previews. Visit the `job_url` for full details, or use a different scraper (Indeed, LinkedIn) if you need full descriptions.
+
+### Initial cursor not found
+
+**Symptom:** "initial cursor not found, try changing your query or there was at most 10 results"
+
+**Cause:** Google didn't return enough results to generate a pagination cursor
+
+**Solutions:**
+1. Use broader search terms
+2. Remove restrictive filters (e.g., `hours_old`, `job_type`)
+3. Try a different location
+
+## CLI Examples
+
+```bash
+# Basic search
+jobspy -s google -q "software engineer" -l "San Francisco, CA" -n 20
+
+# Remote jobs only
+jobspy -s google -q "product manager" -r -n 30
+
+# Recent postings (last 24 hours)
+jobspy -s google -q "data analyst" --hours-old 24 -n 15
+
+# Custom query
+jobspy -s google --google-search-term "senior backend engineer remote $120k" -n 25
+
+# With proxy
+jobspy -s google -q "frontend developer" -l "New York" -p user:pass@proxy.com:8080 -n 20
+
+# Full-time contract positions
+jobspy -s google -q "devops" -t contract -l "Austin, TX" -n 30
+```
+
+## Performance Tips
+
+1. **Combine with faster scrapers**: Use Google Jobs for unique listings, but rely on Indeed/LinkedIn for bulk data
+2. **Use specific queries**: Narrower searches return faster
+3. **Limit results**: Request only what you need
+4. **Proxy rotation**: Use multiple residential proxies for parallel searches
+
+## Source Code
+
+- Implementation: `~/workspace/source/src/scrapers/google/index.ts`
+- Key: `google`
+- Site enum: `Site.GOOGLE`
