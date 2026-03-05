@@ -1,0 +1,71 @@
+---
+title: SalarySource
+description: Indicates where salary information was extracted from
+---
+
+## Overview
+
+The `SalarySource` enum indicates the origin of compensation data in a job posting. This helps distinguish between salary data provided directly by job boards versus data extracted from job descriptions.
+
+## Enum Values
+
+<ParamField path="DIRECT_DATA" type="string">
+  Value: `"direct_data"`
+  
+  Salary information was provided directly by the job board in structured format (e.g., Indeed's salary field, Glassdoor's salary estimate).
+</ParamField>
+
+<ParamField path="DESCRIPTION" type="string">
+  Value: `"description"`
+  
+  Salary information was extracted from the job description text using pattern matching and parsing.
+</ParamField>
+
+## Usage
+
+The `SalarySource` enum is included in job records to indicate the reliability and source of compensation data:
+
+```typescript
+import { scrapeJobs, SalarySource } from "jobspy-js";
+
+const result = await scrapeJobs({
+  site_name: ["indeed", "linkedin"],
+  search_term: "software engineer",
+  location: "San Francisco, CA",
+  results_wanted: 30,
+});
+
+// Filter jobs with direct salary data
+const directSalary = result.jobs.filter(
+  job => job.salary_source === SalarySource.DIRECT_DATA
+);
+
+// Filter jobs with extracted salary data
+const extractedSalary = result.jobs.filter(
+  job => job.salary_source === SalarySource.DESCRIPTION
+);
+
+console.log(`Jobs with direct salary: ${directSalary.length}`);
+console.log(`Jobs with extracted salary: ${extractedSalary.length}`);
+```
+
+## Reliability
+
+Jobs with `DIRECT_DATA` typically have more accurate and structured compensation information, as this data comes from dedicated fields in the job board's API or schema.
+
+Jobs with `DESCRIPTION` rely on pattern matching and may have less precision, as salary formats vary widely in job descriptions (e.g., "$80k-$100k", "80,000 to 100,000 USD", "competitive salary").
+
+## Type Definition
+
+```typescript
+export enum SalarySource {
+  DIRECT_DATA = "direct_data",
+  DESCRIPTION = "description",
+}
+```
+
+## See Also
+
+- [Compensation](/api/types/compensation) — The structure containing salary data
+- [CompensationInterval](/api/enums/compensation-interval) — Time interval for salary (yearly, monthly, etc.)
+- [scrapeJobs()](/api/scrape-jobs) — Main scraping function that returns jobs with salary_source

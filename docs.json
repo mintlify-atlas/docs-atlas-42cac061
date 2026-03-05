@@ -106,7 +106,8 @@
               "api/enums/site",
               "api/enums/job-type",
               "api/enums/compensation-interval",
-              "api/enums/description-format"
+              "api/enums/description-format",
+              "api/enums/salary-source"
             ]
           }
         ]
